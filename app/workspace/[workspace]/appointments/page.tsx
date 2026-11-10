@@ -1052,9 +1052,9 @@ export default function WorkspaceGigAppointmentsPage() {
               <h4 className="text-xs font-bold text-slate-900 mb-2">Recent Points History</h4>
               <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {pointsWallet?.recentTransactions && pointsWallet.recentTransactions.length > 0 ? (
-                  pointsWallet.recentTransactions.map((tx) => (
+                  pointsWallet.recentTransactions.map((tx, idx) => (
                     <div
-                      key={tx.id}
+                      key={`tx-${tx.id || idx}-${idx}`}
                       className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
                     >
                       <div className="flex items-center gap-2">

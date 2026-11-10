@@ -890,7 +890,7 @@ export const gigApi = {
     }
     const newTotal = currentPts + points;
     const newTx: GigPointTransaction = {
-      id: Date.now(),
+      id: Date.now() + Math.floor(Math.random() * 10000),
       points,
       transactionType: "credit",
       title,
@@ -1007,9 +1007,9 @@ function mapRawAppointment(raw: any): GigAppointment {
   };
 }
 
-function mapRawPointTransaction(raw: any): GigPointTransaction {
+function mapRawPointTransaction(raw: any, index = 0): GigPointTransaction {
   return {
-    id: raw.id ?? Date.now(),
+    id: raw.id ?? (Date.now() + index + Math.floor(Math.random() * 10000)),
     points: typeof raw.points === "number" ? raw.points : parseInt(raw.points || "0", 10) || 0,
     transactionType: raw.transaction_type || raw.transactionType || "credit",
     title: raw.title || "Reward Points",
