@@ -927,6 +927,32 @@ function mapRawProvider(raw: any): GigProvider {
   const fullName = nameStr || `${firstName} ${lastName}`.trim();
   const avatarText = raw.avatarText || `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "GP";
 
+  const rawAvatar =
+    raw.avatar_url ||
+    raw.avatarUrl ||
+    raw.avatar ||
+    raw.profile_picture ||
+    raw.profile_photo ||
+    raw.profile_image ||
+    raw.photo_url ||
+    raw.photo ||
+    raw.image ||
+    raw.image_url ||
+    raw.user?.avatar_url ||
+    raw.user?.avatar ||
+    raw.user?.profile_picture ||
+    raw.provider?.avatar_url ||
+    null;
+
+  let avatarUrl = typeof rawAvatar === "string" && rawAvatar.trim() ? rawAvatar.trim() : null;
+  if (avatarUrl) {
+    if (!avatarUrl.startsWith("http://") && !avatarUrl.startsWith("https://") && !avatarUrl.startsWith("data:")) {
+      avatarUrl = avatarUrl.startsWith("/")
+        ? `https://api3.made2tech.com${avatarUrl}`
+        : `https://api3.made2tech.com/${avatarUrl}`;
+    }
+  }
+
   return {
     id: raw.id ?? 0,
     userId: raw.user_id ?? raw.userId ?? 0,
@@ -934,7 +960,7 @@ function mapRawProvider(raw: any): GigProvider {
     lastName,
     fullName,
     avatarText,
-    avatarUrl: raw.avatar_url || raw.avatarUrl || null,
+    avatarUrl,
     specialization: raw.specialization || "General Service",
     bio: raw.bio || "",
     city: raw.city || "Kochi",
@@ -951,7 +977,7 @@ function mapRawProvider(raw: any): GigProvider {
     isIdentityVerified: raw.is_identity_verified ?? raw.isIdentityVerified ?? false,
     isSelfieVerified: raw.is_selfie_verified ?? raw.isSelfieVerified ?? false,
     isLocationVerified: raw.is_location_verified ?? raw.isLocationVerified ?? false,
-    hasRealAvatar: raw.has_real_avatar ?? raw.hasRealAvatar ?? (!!raw.avatar_url),
+    hasRealAvatar: Boolean(avatarUrl),
     rewardPoints: raw.reward_points || raw.rewardPoints || 0,
     tierLevel: raw.tier_level || raw.tierLevel || "Bronze",
     completedWorksCount: raw.completed_works_count || raw.completedWorksCount || 0,

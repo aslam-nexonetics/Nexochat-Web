@@ -56,6 +56,18 @@ export interface CollectionUser {
   specialization?: string | null;
 }
 
+function resolveAvatarUrl(url?: string | null): string | null {
+  if (!url || typeof url !== "string") return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  return trimmed.startsWith("/")
+    ? `https://api3.made2tech.com${trimmed}`
+    : `https://api3.made2tech.com/${trimmed}`;
+}
+
 export const chatApi = {
   async listConversations(
     collectionName: string,
@@ -81,7 +93,7 @@ export const chatApi = {
             `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
             p.username ||
             "Team Member",
-          avatarUrl: p.avatar_url || null,
+          avatarUrl: resolveAvatarUrl(p.avatar_url || p.avatar || p.profile_picture),
           role: p.role || p.specialization || null,
           specialization: p.specialization || p.role || null,
           isOnline: p.is_online === true,
@@ -136,11 +148,14 @@ export const chatApi = {
           otherParticipant?.userId ||
           null;
 
-        const avatarUrl =
+        const avatarUrl = resolveAvatarUrl(
           item.avatar_url ||
+          item.avatar ||
           otherUserObj?.avatar_url ||
+          otherUserObj?.avatar ||
           otherParticipant?.avatarUrl ||
-          null;
+          null
+        );
 
         return {
           id: item.id ?? item.chat_id,
@@ -169,7 +184,7 @@ export const chatApi = {
                 userId: otherUserObj.id,
                 username: otherUserObj.username || "",
                 fullName: otherUserObj.full_name || otherUserObj.username || "",
-                avatarUrl: otherUserObj.avatar_url,
+                avatarUrl: resolveAvatarUrl(otherUserObj.avatar_url || otherUserObj.avatar),
                 role: otherUserObj.role || otherUserObj.specialization,
                 specialization: otherUserObj.specialization || otherUserObj.role,
               }
@@ -209,7 +224,7 @@ export const chatApi = {
           m.author?.full_name ||
           m.author?.username ||
           "",
-        senderAvatar: m.sender_avatar || m.author?.avatar_url || null,
+        senderAvatar: resolveAvatarUrl(m.sender_avatar || m.author?.avatar_url || m.author?.avatar || null),
         messageText: m.message_text || m.content || m.text || "",
         messageType: m.message_type || "text",
         createdAt: m.created_at || new Date().toISOString(),
@@ -369,7 +384,7 @@ export const chatApi = {
           u.username,
         firstName: u.first_name,
         lastName: u.last_name,
-        avatarUrl: u.avatar_url,
+        avatarUrl: resolveAvatarUrl(u.avatar_url || u.avatar || u.profile_picture),
         role: u.role || u.specialization || null,
         specialization: u.specialization || u.role || null,
       }));

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   User,
   Briefcase,
@@ -54,7 +54,7 @@ import { JobProfile, Experience, Education } from "@/lib/types/job";
 import { jobsApi } from "@/lib/api/jobs";
 import { memberProfileApi, MemberProfile } from "@/lib/api/member-profile";
 import { gigApi } from "@/lib/api/gig";
-import { GigProvider, GigBotConfig, GigBotReply } from "@/lib/types/gig";
+import { GigProvider, GigBotConfig, GigBotReply, GigReview } from "@/lib/types/gig";
 import {
   GigBoatQuestionsService,
   GigBoatQuestion,
@@ -63,10 +63,16 @@ import {
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function WorkspaceProfileDispatcherPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const workspaceSlug = ((params?.workspace as string) || "techform").toLowerCase().trim();
+  const targetUserIdParam = searchParams.get("userId");
+  const targetProviderIdParam = searchParams.get("providerId");
+  const targetUserId = targetUserIdParam ? parseInt(targetUserIdParam, 10) : undefined;
+  const targetProviderId = targetProviderIdParam ? parseInt(targetProviderIdParam, 10) : undefined;
 
   const { activeCollection, collections, selectCollectionByName } = useWorkspaceStore();
 
@@ -79,24 +85,36 @@ export default function WorkspaceProfileDispatcherPage() {
   // Dispatch appropriate profile screen matching Flutter home_page.dart:
   // 1. Techform -> Candidate CV / Job Profile
   if (workspaceSlug.includes("techform")) {
-    return <TechformCandidateProfileView />;
+    return <TechformCandidateProfileView targetUserId={targetUserId} />;
   }
 
-  // 2. GIG -> Provider Registration & KYC Profile
+  // 2. GIG -> Provider Registration & KYC Profile or Provider Dossier
   if (workspaceSlug.includes("gig")) {
-    return <GigProviderProfileView />;
+    return (
+      <GigProviderProfileView
+        targetProviderId={targetProviderId}
+        targetUserId={targetUserId}
+      />
+    );
   }
 
   // 3. Nexonetics, Shalabam, and other collections -> Member Profile Dossier
-  return <CollectionMemberProfileView collectionName={workspaceSlug} />;
+  return (
+    <CollectionMemberProfileView
+      collectionName={workspaceSlug}
+      targetUserId={targetUserId}
+    />
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. TECHFORM: Job Candidate Profile & CV View (Matching ResponsiveJobProfileScreen)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TechformCandidateProfileView() {
+function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number }) {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const isViewingOther = Boolean(targetUserId && targetUserId !== user?.id);
   const [profile, setProfile] = React.useState<JobProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSavingSummary, setIsSavingSummary] = React.useState(false);
@@ -364,23 +382,47 @@ function TechformCandidateProfileView() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={handleResumeUpload}
-                disabled={isUploadingResume}
-              />
-              <div className="h-9 px-3.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors shadow-2xs">
-                {isUploadingResume ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                ) : (
-                  <Upload className="h-3.5 w-3.5 text-slate-500" />
-                )}
-                <span>Upload PDF Resume</span>
+            {isViewingOther ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => router.back()}
+                  className="h-9 px-3.5 rounded-xl border-slate-200 text-xs font-semibold gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back</span>
+                </Button>
+                <Button
+                  onClick={() =>
+                    router.push(
+                      `/workspace/techform/chat?otherUserId=${targetUserId}`
+                    )
+                  }
+                  className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>Chat with Candidate</span>
+                </Button>
               </div>
-            </label>
+            ) : (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handleResumeUpload}
+                  disabled={isUploadingResume}
+                />
+                <div className="h-9 px-3.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors shadow-2xs">
+                  {isUploadingResume ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5 text-slate-500" />
+                  )}
+                  <span>Upload PDF Resume</span>
+                </div>
+              </label>
+            )}
           </div>
         </div>
 
@@ -702,8 +744,107 @@ function TechformCandidateProfileView() {
 // 2. GIG: Provider Registration & KYC Profile View (Matching GigScreen.register)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function GigProviderProfileView() {
+function GigProviderProfileView({
+  targetProviderId,
+  targetUserId,
+}: {
+  targetProviderId?: number;
+  targetUserId?: number;
+}) {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const isViewingOther = Boolean(
+    targetProviderId || (targetUserId && targetUserId !== user?.id)
+  );
+
+  // States for viewing another provider's profile dossier
+  const [viewProvider, setViewProvider] = React.useState<GigProvider | null>(null);
+  const [isLoadingViewProvider, setIsLoadingViewProvider] = React.useState(false);
+  const [viewReviews, setViewReviews] = React.useState<GigReview[]>([]);
+  const [isLoadingViewReviews, setIsLoadingViewReviews] = React.useState(false);
+
+  // Booking modal for viewing another provider
+  const [isBookingModalOpen, setIsBookingModalOpen] = React.useState(false);
+  const [isSubmittingBooking, setIsSubmittingBooking] = React.useState(false);
+  const [bookingForm, setBookingForm] = React.useState({
+    serviceTitle: "",
+    category: "",
+    description: "",
+    address: "",
+    city: "Kochi",
+    area: "Kaloor",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    scheduledTimeSlot: "10:00 AM - 12:00 PM",
+    estimatedBudget: 350,
+  });
+
+  React.useEffect(() => {
+    if (!isViewingOther) return;
+    let isMounted = true;
+    setIsLoadingViewProvider(true);
+
+    const loadTargetProvider = async () => {
+      try {
+        if (targetProviderId) {
+          const details = await gigApi.fetchProviderDetails(targetProviderId);
+          if (isMounted && details) {
+            setViewProvider(details);
+            setBookingForm((prev) => ({
+              ...prev,
+              serviceTitle: `${details.specialization} Service`,
+              category: details.specialization,
+              estimatedBudget: Number(details.hourlyRate) || 350,
+              city: details.city || "Kochi",
+              area: details.area || "Kaloor",
+            }));
+            setIsLoadingViewReviews(true);
+            const revs = await gigApi.fetchProviderReviews(targetProviderId);
+            if (isMounted) {
+              setViewReviews(revs);
+              setIsLoadingViewReviews(false);
+            }
+            return;
+          }
+        }
+
+        const list = await gigApi.searchProviders();
+        const found = list.find((p: GigProvider) =>
+          targetProviderId
+            ? p.id === targetProviderId
+            : targetUserId
+            ? p.userId === targetUserId
+            : false
+        );
+        if (isMounted && found) {
+          setViewProvider(found);
+          setBookingForm((prev) => ({
+            ...prev,
+            serviceTitle: `${found.specialization} Service`,
+            category: found.specialization,
+            estimatedBudget: Number(found.hourlyRate) || 350,
+            city: found.city || "Kochi",
+            area: found.area || "Kaloor",
+          }));
+          setIsLoadingViewReviews(true);
+          const revs = await gigApi.fetchProviderReviews(found.id);
+          if (isMounted) {
+            setViewReviews(revs);
+            setIsLoadingViewReviews(false);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load provider profile:", err);
+      } finally {
+        if (isMounted) setIsLoadingViewProvider(false);
+      }
+    };
+
+    loadTargetProvider();
+    return () => {
+      isMounted = false;
+    };
+  }, [isViewingOther, targetProviderId, targetUserId]);
+
   const [provider, setProvider] = React.useState<GigProvider | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isEditing, setIsEditing] = React.useState(false);
@@ -1077,6 +1218,372 @@ function GigProviderProfileView() {
       testChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 450);
   };
+
+  if (isViewingOther) {
+    if (isLoadingViewProvider) {
+      return (
+        <div className="py-24 flex flex-col items-center justify-center text-slate-400 space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <p className="text-xs font-semibold">Loading provider profile...</p>
+        </div>
+      );
+    }
+
+    if (!viewProvider) {
+      return (
+        <div className="max-w-xl mx-auto py-16 text-center space-y-4">
+          <div className="h-14 w-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+            <User className="h-7 w-7" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">Provider Profile Not Found</h2>
+          <p className="text-xs text-slate-500">
+            The requested service provider could not be retrieved from the GIG network.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="rounded-xl border-slate-200 text-xs font-semibold gap-1.5 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Go Back</span>
+          </Button>
+        </div>
+      );
+    }
+
+    const initials =
+      viewProvider.avatarText ||
+      `${viewProvider.firstName?.[0] || ""}${viewProvider.lastName?.[0] || ""}`.toUpperCase() ||
+      "GP";
+
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 pb-12 font-sans">
+        {/* Top Header Card */}
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="h-20 w-20 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-2xl shrink-0 shadow-md overflow-hidden">
+                {viewProvider.avatarUrl ? (
+                  <img
+                    src={viewProvider.avatarUrl}
+                    alt={viewProvider.fullName}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <span>{initials}</span>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                    {viewProvider.fullName}
+                  </h1>
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold flex items-center gap-1 shadow-2xs">
+                    <Wrench className="h-3 w-3 text-blue-600" />
+                    <span>{viewProvider.specialization}</span>
+                  </span>
+                  {viewProvider.isIdentityVerified && (
+                    <Badge
+                      variant="outline"
+                      className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-semibold gap-1"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      <span>KYC Verified</span>
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                  <span className="flex items-center gap-1 font-semibold text-amber-600">
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    <span>{viewProvider.rating?.toFixed(1) || "5.0"}</span>
+                    <span className="text-slate-400 font-normal">
+                      ({viewProvider.reviewCount || viewReviews.length || 0} reviews)
+                    </span>
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    <span>{viewProvider.city}, {viewProvider.area}</span>
+                  </span>
+                  <span>•</span>
+                  <span className="font-bold text-slate-900">
+                    ₹{viewProvider.hourlyRate}/hr
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => router.back()}
+                className="h-10 px-3.5 rounded-xl border-slate-200 text-xs font-semibold gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
+              </Button>
+              <Button
+                onClick={() =>
+                  router.push(
+                    `/workspace/gig/chat?otherUserId=${viewProvider.userId}&otherUserName=${encodeURIComponent(
+                      viewProvider.fullName || ""
+                    )}&providerId=${viewProvider.id}&specialization=${encodeURIComponent(
+                      viewProvider.specialization || "Service"
+                    )}`
+                  )
+                }
+                className="h-10 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Message</span>
+              </Button>
+              <Button
+                onClick={() => setIsBookingModalOpen(true)}
+                className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Book Appointment</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Main Info */}
+          <div className="md:col-span-2 space-y-6">
+            {/* About / Bio */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-3">
+              <h3 className="font-extrabold text-sm text-slate-900">About Provider</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {viewProvider.bio ||
+                  `${viewProvider.fullName} is an experienced ${viewProvider.specialization} professional based in ${viewProvider.city}. Specializing in on-demand service and guaranteed customer satisfaction.`}
+              </p>
+            </div>
+
+            {/* Reviews Section */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-sm text-slate-900">
+                  Customer Reviews ({viewReviews.length})
+                </h3>
+                <div className="flex items-center gap-1 text-xs font-bold text-slate-800">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  <span>{viewProvider.rating?.toFixed(1) || "5.0"} out of 5</span>
+                </div>
+              </div>
+
+              {isLoadingViewReviews ? (
+                <div className="py-8 flex justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                </div>
+              ) : viewReviews.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400 italic">
+                  No public customer reviews recorded yet for this provider.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {viewReviews.map((rev) => (
+                    <div key={rev.id} className="py-3.5 first:pt-0 last:pb-0 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-900">
+                          {rev.reviewerName || "Verified Client"}
+                        </span>
+                        <div className="flex items-center gap-0.5 text-amber-500">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={cn(
+                                "h-3 w-3",
+                                i < (rev.rating || 5)
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-slate-200"
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {rev.comment || "Great service! Punctual and professional."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Verification & Badges Sidebar */}
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <h3 className="font-extrabold text-sm text-slate-900">Trust & Verification</h3>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Identity Verified</span>
+                    <span className="text-[11px] text-slate-500">Government ID vetted</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-50/60 border border-blue-100">
+                  <CheckCircle2 className="h-5 w-5 text-blue-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Selfie Liveness</span>
+                    <span className="text-[11px] text-slate-500">Facial biometric match</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+                  <CheckCircle2 className="h-5 w-5 text-indigo-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Location Radius</span>
+                    <span className="text-[11px] text-slate-500">{viewProvider.workingRadius || 15} km service range</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>Completed Jobs</span>
+                <span className="font-bold text-slate-900">{viewProvider.completedWorksCount || 12}+</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Booking Dialog Modal */}
+        <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
+          <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-extrabold text-slate-900">
+                Book Appointment with {viewProvider.fullName}
+              </DialogTitle>
+            </DialogHeader>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSubmittingBooking(true);
+                try {
+                  const appointment = await gigApi.bookAppointment({
+                    providerId: viewProvider.id,
+                    serviceTitle: bookingForm.serviceTitle || `${viewProvider.specialization} Work`,
+                    category: viewProvider.specialization,
+                    description: bookingForm.description || "Service request",
+                    address: bookingForm.address,
+                    city: viewProvider.city,
+                    area: viewProvider.area,
+                    scheduledDate: bookingForm.scheduledDate,
+                    scheduledTimeSlot: bookingForm.scheduledTimeSlot,
+                    estimatedBudget: Number(bookingForm.estimatedBudget),
+                  });
+                  if (appointment) {
+                    toast.success("Appointment request submitted successfully!");
+                    setIsBookingModalOpen(false);
+                    router.push("/workspace/gig/appointments");
+                  } else {
+                    toast.error("Failed to submit appointment");
+                  }
+                } catch (err: any) {
+                  toast.error(err?.message || "Failed to book appointment");
+                } finally {
+                  setIsSubmittingBooking(false);
+                }
+              }}
+              className="space-y-3 pt-2"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Service Required</label>
+                <input
+                  type="text"
+                  required
+                  value={bookingForm.serviceTitle}
+                  onChange={(e) => setBookingForm({ ...bookingForm, serviceTitle: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Detailed Description</label>
+                <textarea
+                  rows={2}
+                  value={bookingForm.description}
+                  onChange={(e) => setBookingForm({ ...bookingForm, description: e.target.value })}
+                  placeholder="Explain what needs fixing or installation..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Service Address</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="House / Apartment / Landmark"
+                  value={bookingForm.address}
+                  onChange={(e) => setBookingForm({ ...bookingForm, address: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={bookingForm.scheduledDate}
+                    onChange={(e) => setBookingForm({ ...bookingForm, scheduledDate: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Time Slot</label>
+                  <select
+                    value={bookingForm.scheduledTimeSlot}
+                    onChange={(e) => setBookingForm({ ...bookingForm, scheduledTimeSlot: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option>09:00 AM - 11:00 AM</option>
+                    <option>11:00 AM - 01:00 PM</option>
+                    <option>02:00 PM - 04:00 PM</option>
+                    <option>04:00 PM - 06:00 PM</option>
+                  </select>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBookingModalOpen(false)}
+                  className="rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isSubmittingBooking}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingBooking && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Confirm Booking</span>
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -1843,8 +2350,17 @@ function GigProviderProfileView() {
 // 3. MEMBER PROFILE: Standard Collection Profile (Matching ResponsiveProfileScreen)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CollectionMemberProfileView({ collectionName }: { collectionName: string }) {
+function CollectionMemberProfileView({
+  collectionName,
+  targetUserId,
+}: {
+  collectionName: string;
+  targetUserId?: number;
+}) {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const isViewingOther = Boolean(targetUserId && targetUserId !== user?.id);
+
   const [profile, setProfile] = React.useState<MemberProfile | null>(null);
   const [displayName, setDisplayName] = React.useState("");
   const [bio, setBio] = React.useState("");
@@ -1857,25 +2373,42 @@ function CollectionMemberProfileView({ collectionName }: { collectionName: strin
     let isMounted = true;
     setIsLoading(true);
 
-    memberProfileApi
-      .getMyProfile(collectionName, user || undefined)
-      .then((data) => {
-        if (isMounted && data) {
-          setProfile(data);
-          setDisplayName(data.displayName);
-          setBio(data.bio);
-          setIsPublic(data.isPublic === "true");
-          setIsActive(data.isActive === "true");
-        }
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
+    if (isViewingOther && targetUserId) {
+      memberProfileApi
+        .getUserProfile(collectionName, targetUserId)
+        .then((data) => {
+          if (isMounted && data) {
+            setProfile(data);
+            setDisplayName(data.displayName);
+            setBio(data.bio);
+            setIsPublic(data.isPublic === "true");
+            setIsActive(data.isActive === "true");
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    } else {
+      memberProfileApi
+        .getMyProfile(collectionName, user || undefined)
+        .then((data) => {
+          if (isMounted && data) {
+            setProfile(data);
+            setDisplayName(data.displayName);
+            setBio(data.bio);
+            setIsPublic(data.isPublic === "true");
+            setIsActive(data.isActive === "true");
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    }
 
     return () => {
       isMounted = false;
     };
-  }, [collectionName, user]);
+  }, [collectionName, user, isViewingOther, targetUserId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1919,13 +2452,24 @@ function CollectionMemberProfileView({ collectionName }: { collectionName: strin
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-2xl border border-indigo-200 shrink-0">
-              {initials}
+            <div className="h-16 w-16 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-2xl border border-indigo-200 shrink-0 overflow-hidden">
+              {profile?.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                initials
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                  {displayName || user?.fullName || "Member Profile"}
+                  {displayName || (isViewingOther ? "Member Profile" : user?.fullName || "Member Profile")}
                 </h1>
                 <Badge
                   variant="outline"
@@ -1939,69 +2483,107 @@ function CollectionMemberProfileView({ collectionName }: { collectionName: strin
                 </Badge>
               </div>
               <p className="text-xs text-slate-500">
-                @{user?.username} · Member in {collectionName}
+                {profile?.username ? `@${profile.username} · ` : ""}Member in {collectionName}
               </p>
             </div>
           </div>
 
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1.5 shadow-2xs shrink-0"
-          >
-            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            <span>Save Profile</span>
-          </Button>
+          {isViewingOther ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => router.back()}
+                className="h-9 px-3 rounded-xl border-slate-200 text-xs font-semibold gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Back</span>
+              </Button>
+              <Button
+                onClick={() =>
+                  router.push(
+                    `/workspace/${collectionName}/chat?otherUserId=${targetUserId}&otherUserName=${encodeURIComponent(
+                      displayName || "Member"
+                    )}`
+                  )
+                }
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>Chat</span>
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1.5 shadow-2xs shrink-0 cursor-pointer"
+            >
+              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              <span>Save Profile</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ── 2. Member Settings Form ──────────────────────────────────────── */}
-      <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-        <h2 className="text-base font-bold text-slate-900 tracking-tight">Dossier Details</h2>
-
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Display Name</label>
-          <input
-            type="text"
-            required
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Bio / Role Description</label>
-          <textarea
-            rows={3}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Share what you work on in this collection..."
-            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
-          />
-        </div>
-
-        {/* Visibility Toggles */}
-        <div className="pt-2 border-t border-slate-100 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-900 block">Public Profile in {collectionName}</span>
-              <span className="text-[11px] text-slate-400">
-                Allow other team members in this workspace to view your dossier and start chats.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsPublic(!isPublic)}
-              className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
-                isPublic ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-50 border-slate-200 text-slate-400"
-              }`}
-            >
-              {isPublic ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            </button>
+      {/* ── 2. Member Dossier / Settings Form ─────────────────────────────── */}
+      {isViewingOther ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">Member Bio</h2>
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-700 leading-relaxed">
+            {bio || "No bio has been added by this member yet."}
+          </div>
+          <div className="pt-2 text-xs text-slate-500">
+            Registered member in {collectionName} collection workspace.
           </div>
         </div>
-      </form>
+      ) : (
+        <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">Dossier Details</h2>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Display Name</label>
+            <input
+              type="text"
+              required
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Bio / Role Description</label>
+            <textarea
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Share what you work on in this collection..."
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* Visibility Toggles */}
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">Public Profile in {collectionName}</span>
+                <span className="text-[11px] text-slate-400">
+                  Allow other team members in this workspace to view your dossier and start chats.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPublic(!isPublic)}
+                className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
+                  isPublic ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-slate-50 border-slate-200 text-slate-400"
+                }`}
+              >
+                {isPublic ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

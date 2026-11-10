@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -335,6 +335,7 @@ function WorkspaceChatContent() {
   const isAvailableNowParam = searchParams.get("isAvailableNow");
   const specializationParam = searchParams.get("specialization");
   const appointmentIdParam = searchParams.get("appointmentId");
+  const router = useRouter();
 
   const { user } = useAuthStore();
   const { activeCollection, collections, selectCollectionByName } = useWorkspaceStore();
@@ -420,6 +421,66 @@ function WorkspaceChatContent() {
   const collectionName = matchedBySlug?.collectionName || workspaceSlug.toUpperCase();
   const isGigCollection =
     workspaceSlug.toLowerCase() === "gig" || collectionName.toLowerCase() === "gig";
+  const isTechformCollection =
+    workspaceSlug.toLowerCase().includes("techform") ||
+    collectionName.toLowerCase().includes("techform");
+
+  const handleHeaderProfileClick = React.useCallback(() => {
+    if (isAryaAiActive) return;
+
+    // Resolve target other user's ID
+    const targetUserId =
+      otherUserIdParam
+        ? parseInt(otherUserIdParam, 10)
+        : activeRoom?.otherUserId
+        ? Number(activeRoom.otherUserId)
+        : activeRoom?.participants?.find((p) => p.userId !== user?.id && p.id !== user?.id)?.userId ||
+          activeRoom?.participants?.find((p) => p.userId !== user?.id && p.id !== user?.id)?.id ||
+          null;
+
+    // 1. GIG Collection: Navigate to provider profile / dossier
+    if (isGigCollection) {
+      const pId = resolvedProviderId || (providerIdParam ? parseInt(providerIdParam, 10) : null);
+      if (pId) {
+        router.push(
+          `/workspace/${workspaceSlug}/profile?providerId=${pId}${targetUserId ? `&userId=${targetUserId}` : ""}`
+        );
+      } else if (targetUserId) {
+        router.push(`/workspace/${workspaceSlug}/profile?userId=${targetUserId}`);
+      } else {
+        router.push(`/workspace/${workspaceSlug}/profile`);
+      }
+      return;
+    }
+
+    // 2. Techform Collection: Navigate to candidate profile
+    if (isTechformCollection) {
+      if (targetUserId) {
+        router.push(`/workspace/${workspaceSlug}/profile?userId=${targetUserId}`);
+      } else {
+        router.push(`/workspace/${workspaceSlug}/profile`);
+      }
+      return;
+    }
+
+    // 3. Other collections (Feeds, Company, Shalabam, Nexonetics, etc.): Navigate to member profile
+    if (targetUserId) {
+      router.push(`/workspace/${workspaceSlug}/profile?userId=${targetUserId}`);
+    } else {
+      router.push(`/workspace/${workspaceSlug}/profile`);
+    }
+  }, [
+    isAryaAiActive,
+    otherUserIdParam,
+    activeRoom,
+    user?.id,
+    isGigCollection,
+    resolvedProviderId,
+    providerIdParam,
+    router,
+    workspaceSlug,
+    isTechformCollection,
+  ]);
 
   // Reset bot session state on active room switch
   React.useEffect(() => {
@@ -586,7 +647,12 @@ function WorkspaceChatContent() {
       if (!silent) setIsLoadingRooms(true);
       try {
         const fetchedRooms = await chatApi.listConversations(collectionName, user?.id);
-        setRooms(fetchedRooms);
+        const sortedRooms = [...fetchedRooms].sort((a, b) => {
+          const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+          const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+          return timeB - timeA;
+        });
+        setRooms(sortedRooms);
 
         // If otherUserIdParam is given in URL, try to match or initiate room
         if (otherUserIdParam) {
@@ -701,22 +767,22 @@ function WorkspaceChatContent() {
         });
       }
 
-      // Update room preview smoothly in place without showing any loading spinner
+      // Update room preview smoothly and move to top of conversations list
       if (incomingChatId) {
-        setRooms((prev) =>
-          prev.map((r) =>
-            r.id === incomingChatId
-              ? {
-                  ...r,
-                  lastMessage: body || r.lastMessage,
-                  lastMessageTime: new Date().toISOString(),
-                  unreadCount: isCurrentlyViewingThisChat
-                    ? 0
-                    : (r.unreadCount || 0) + 1,
-                }
-              : r
-          )
-        );
+        setRooms((prev) => {
+          const existing = prev.find((r) => r.id === incomingChatId);
+          if (!existing) return prev;
+          const updated = {
+            ...existing,
+            lastMessage: body || existing.lastMessage,
+            lastMessageTime: new Date().toISOString(),
+            unreadCount: isCurrentlyViewingThisChat
+              ? 0
+              : (existing.unreadCount || 0) + 1,
+          };
+          const others = prev.filter((r) => r.id !== incomingChatId);
+          return [updated, ...others];
+        });
       }
 
       // Silently sync from backend in the background without flipping isLoadingRooms
@@ -776,14 +842,21 @@ function WorkspaceChatContent() {
           }
         }
 
-        // Update last message snippet in conversations list
-        setRooms((prev) =>
-          prev.map((r) =>
-            r.id === incomingChatId
-              ? { ...r, lastMessage: incomingText, lastMessageTime: new Date().toISOString() }
-              : r
-          )
-        );
+        // Update last message snippet in conversations list and move to top
+        setRooms((prev) => {
+          const existing = prev.find((r) => r.id === incomingChatId);
+          if (!existing) {
+            loadConversations(true);
+            return prev;
+          }
+          const updated = {
+            ...existing,
+            lastMessage: incomingText || existing.lastMessage,
+            lastMessageTime: new Date().toISOString(),
+          };
+          const others = prev.filter((r) => r.id !== incomingChatId);
+          return [updated, ...others];
+        });
       } else if (event.type === "typing_indicator") {
         const data = event as any;
         if (activeRoom && data.chat_id === activeRoom.id && data.user_id !== user?.id) {
@@ -965,14 +1038,15 @@ function WorkspaceChatContent() {
 
     if (sent) {
       setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...sent, isMe: true } : m)));
-      // Update room last message in sidebar
-      setRooms((prev) =>
-        prev.map((r) =>
-          r.id === activeRoom.id
-            ? { ...r, lastMessage: messageText, lastMessageTime: new Date().toISOString() }
-            : r
-        )
-      );
+      // Update room last message in sidebar and move to top
+      setRooms((prev) => {
+        const existing = prev.find((r) => r.id === activeRoom.id);
+        const updated = existing
+          ? { ...existing, lastMessage: messageText, lastMessageTime: new Date().toISOString() }
+          : { ...activeRoom, lastMessage: messageText, lastMessageTime: new Date().toISOString() };
+        const others = prev.filter((r) => r.id !== activeRoom.id);
+        return [updated, ...others];
+      });
     } else {
       toast.error("Failed to deliver message");
     }
@@ -1168,10 +1242,27 @@ function WorkspaceChatContent() {
     }
   };
 
-  // Filtered rooms
-  const filteredRooms = rooms.filter((r) =>
-    r.channelName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Sorted rooms: ensure most recent conversation is always at the top
+  const sortedRooms = React.useMemo(() => {
+    return [...rooms].sort((a, b) => {
+      const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [rooms]);
+
+  // Filtered rooms matching search
+  const filteredRooms = React.useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return sortedRooms;
+    return sortedRooms.filter(
+      (r) =>
+        (r.displayName && r.displayName.toLowerCase().includes(q)) ||
+        (r.channelName && r.channelName.toLowerCase().includes(q)) ||
+        (r.specialization && r.specialization.toLowerCase().includes(q)) ||
+        (r.lastMessage && r.lastMessage.toLowerCase().includes(q))
+    );
+  }, [sortedRooms, searchQuery]);
 
   // Filtered collection users
   const filteredUsers = collectionUsers.filter(
@@ -1358,13 +1449,20 @@ function WorkspaceChatContent() {
                 <>
                   {/* Room Header */}
                   <div className="h-16 px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-4 shrink-0 shadow-2xs">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      onClick={handleHeaderProfileClick}
+                      className={cn(
+                        "flex items-center gap-3 min-w-0 transition-opacity text-left",
+                        !isAryaAiActive && "cursor-pointer group hover:opacity-85"
+                      )}
+                      title={!isAryaAiActive ? `Click to view ${activeTitle}'s profile` : undefined}
+                    >
                       {isAryaAiActive ? (
                         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
                           <Bot className="h-5 w-5" />
                         </div>
                       ) : (
-                        <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden">
+                        <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden group-hover:ring-2 group-hover:ring-indigo-400 transition-all">
                           {activeRoom.avatarUrl ? (
                             <img
                               src={activeRoom.avatarUrl}
@@ -1378,7 +1476,7 @@ function WorkspaceChatContent() {
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-sm text-slate-900 truncate">
+                          <h3 className="font-bold text-sm text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
                             {headerTitle}
                           </h3>
                           {headerRole && (
@@ -1403,38 +1501,15 @@ function WorkspaceChatContent() {
                               <span>Appointment #{appointmentIdParam}</span>
                             </span>
                           )}
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] font-semibold py-0.5 gap-1",
-                              isAryaAiActive
-                                ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                                : isSocketConnected
-                                ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                                : "text-slate-500 bg-slate-50 border-slate-200"
-                            )}
-                          >
-                            <Circle
-                              className={cn(
-                                "h-2 w-2 fill-current",
-                                isAryaAiActive
-                                  ? "text-emerald-500"
-                                  : isSocketConnected
-                                  ? "text-emerald-500 animate-pulse"
-                                  : "text-slate-400"
-                              )}
-                            />
-                            <span>{isAryaAiActive ? "Instant AI Active" : isSocketConnected ? "Live" : "Direct Channel"}</span>
-                          </Badge>
                         </div>
                         <p className="text-[11px] text-slate-400 truncate">
                           {isAryaAiActive
                             ? `Smart Assistant for ${activeTitle} • Instant answers & bookings`
                             : isGigCollection
                             ? activeRole
-                              ? `${activeRole} Specialist • GIG Verified`
-                              : "GIG Service Provider"
-                            : `${collectionName} Workspace`}
+                              ? `${activeRole} Specialist • Click to view profile`
+                              : "GIG Service Provider • Click to view profile"
+                            : `${collectionName} Workspace • Click to view profile`}
                         </p>
                       </div>
                     </div>

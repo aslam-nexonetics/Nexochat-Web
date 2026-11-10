@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Wrench,
   Search,
@@ -168,6 +168,27 @@ export default function WorkspaceGigsPage() {
       selectCollectionByName(workspaceSlug);
     }
   }, [workspaceSlug, selectCollectionByName]);
+
+  const searchParams = useSearchParams();
+  const providerIdParam = searchParams.get("providerId");
+
+  React.useEffect(() => {
+    if (!providerIdParam) return;
+    const pId = parseInt(providerIdParam, 10);
+    if (!pId) return;
+
+    gigApi.fetchProviderDetails(pId).then((prov) => {
+      if (prov) {
+        setDetailProvider(prov);
+        setCurrentScreen("results");
+        setIsLoadingReviews(true);
+        gigApi.fetchProviderReviews(pId).then((revs) => {
+          setProviderReviews(revs);
+          setIsLoadingReviews(false);
+        });
+      }
+    });
+  }, [providerIdParam]);
 
   // Load providers strictly from backend
   const loadProviders = React.useCallback(
@@ -899,8 +920,19 @@ export default function WorkspaceGigsPage() {
             <>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-base shadow-xs">
-                    {detailProvider.avatarText || `${detailProvider.firstName[0] || ""}${detailProvider.lastName[0] || ""}`}
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-base shadow-xs overflow-hidden">
+                    {detailProvider.avatarUrl ? (
+                      <img
+                        src={detailProvider.avatarUrl}
+                        alt={detailProvider.fullName}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      detailProvider.avatarText || `${detailProvider.firstName[0] || ""}${detailProvider.lastName[0] || ""}`
+                    )}
                   </div>
                   <div>
                     <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
@@ -1128,8 +1160,19 @@ function ProviderCard({
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-sm shadow-xs">
-                {initials}
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-sm shadow-xs overflow-hidden">
+                {provider.avatarUrl ? (
+                  <img
+                    src={provider.avatarUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               {provider.isAvailableNow && (
                 <span

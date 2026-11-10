@@ -102,4 +102,33 @@ export const memberProfileApi = {
       return false;
     }
   },
+
+  async getUserProfile(collectionName: string, userId: number): Promise<MemberProfile | null> {
+    try {
+      const res = await apiClient.get<any>(
+        `/profile/${collectionName}/profiles/users/?user_ids=${userId}`
+      );
+      const list = res?.data || res;
+      const item = Array.isArray(list) ? list[0] : (list?.data?.[0] || list);
+      if (item) {
+        return {
+          id: item.id || userId,
+          userId: item.user_id || userId,
+          displayName: item.display_name || item.username || "Team Member",
+          username: item.username || "",
+          avatarUrl: item.avatar_url || "",
+          isActive: item.is_active?.toString() ?? "true",
+          isPublic: item.is_public?.toString() ?? "true",
+          bio: item.bio || item.role || "",
+          metadata: item.metadata || {},
+          createdAt: item.created_at || new Date().toISOString(),
+          updatedAt: item.updated_at || new Date().toISOString(),
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn(`[memberProfileApi.getUserProfile] Failed for user ${userId}:`, err);
+      return null;
+    }
+  },
 };
