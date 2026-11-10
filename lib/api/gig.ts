@@ -10,7 +10,7 @@ import {
   GigPointsWallet,
   GigPointTransaction,
 } from "../types/gig";
-import { GigBotKnowledgeEngine } from "./gig-bot";
+import { GigBotKnowledgeEngine, GigBoatQuestionsService } from "./gig-bot";
 
 export const gigApi = {
   // ── 1. Provider Directory & Profile ──────────────────────────────────────────
@@ -588,6 +588,9 @@ export const gigApi = {
     providerId?: number;
     welcomeMessage?: string;
     isAvailableNow?: boolean;
+    answers?: Record<number, string[]>;
+    shareSlug?: string;
+    publicUrl?: string;
   } | null> {
     const candidateEndpoints = [
       `/jobs/GIG/bot/profile/${providerId}`,
@@ -613,14 +616,54 @@ export const gigApi = {
           const botName =
             rawName || (pName ? `${pName}'s AI Assistant` : "AI Assistant");
 
-          return {
+          // Parse questionnaire answers if present
+          const answers: Record<number, string[]> = {};
+          if (Array.isArray(data.answers)) {
+            for (const item of data.answers) {
+              if (item && item.step !== undefined) {
+                answers[Number(item.step)] = Array.isArray(item.selected_options)
+                  ? item.selected_options
+                  : Array.isArray(item.selectedOptions)
+                  ? item.selectedOptions
+                  : [];
+              }
+            }
+          } else if (data.answers && typeof data.answers === "object") {
+            for (const [k, v] of Object.entries(data.answers)) {
+              const stepNum = parseInt(k, 10);
+              if (!isNaN(stepNum) && Array.isArray(v)) {
+                answers[stepNum] = v as string[];
+              }
+            }
+          }
+
+          const botConfig = {
             isActive: data.is_active ?? data.isActive ?? true,
             botName,
             botId: data.bot_id ?? data.botId,
             providerId: data.provider_id ?? data.providerId ?? providerId,
             welcomeMessage: data.welcome_message ?? data.welcomeMessage,
             isAvailableNow: data.is_provider_currently_available,
+            answers,
+            shareSlug: data.share_slug || data.shareSlug,
+            publicUrl: data.public_url || data.publicUrl,
           };
+
+          // Cache locally in GigBoatQuestionsService for offline and fast retrieval
+          GigBoatQuestionsService.saveBoatConfig({
+            providerId: botConfig.providerId,
+            userId: data.user_id || data.userId || 0,
+            providerName: pName || "",
+            specialization: data.specialization || "",
+            boatName: botName,
+            welcomeMessage: botConfig.welcomeMessage,
+            shareSlug: botConfig.shareSlug || "",
+            isActive: botConfig.isActive,
+            isReady: true,
+            answers,
+          }).catch(() => {});
+
+          return botConfig;
         }
       } catch {
         // Continue to next endpoint candidate
@@ -645,6 +688,7 @@ export const gigApi = {
     options?: {
       botId?: number;
       conversationHistory?: Array<{ role: string; content: string }>;
+      answers?: Record<number, string[]>;
     }
   ): Promise<GigBotReply> {
     const candidateEndpoints = [
@@ -688,7 +732,9 @@ export const gigApi = {
       query,
       `${provider.firstName} ${provider.lastName}`.trim() || provider.fullName || "Provider",
       provider.specialization,
-      provider.hourlyRate
+      provider.hourlyRate,
+      options?.answers,
+      { city: provider.city, area: provider.area }
     );
   },
 

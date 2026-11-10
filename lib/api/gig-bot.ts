@@ -75,11 +75,27 @@ export class GigBotKnowledgeEngine {
     rawQuery: string,
     providerName: string,
     specialization: string,
-    hourlyRate?: string | number | null
+    hourlyRate?: string | number | null,
+    answers?: Record<number, string[]> | null,
+    location?: { city?: string; area?: string }
   ): GigBotReply {
     const query = rawQuery.toLowerCase();
     const rateStr = hourlyRate ? `₹${hourlyRate}/hr` : "₹350/hr";
-    const name = providerName || "Our certified technician";
+    const name = providerName || "Our certified specialist";
+    const spec = specialization || "Service Specialist";
+    const loc = [location?.area, location?.city].filter(Boolean).join(", ") || "your local area";
+
+    // Extract questionnaire configured answers (matching Flutter GigBoatConfig getters)
+    const selectedServices = answers?.[1] || [];
+    const emergencyAvailability = answers?.[2]?.[0];
+    const visitFee = answers?.[3]?.[0];
+    const workingHours = answers?.[4]?.[0];
+    const coverageArea = answers?.[5]?.[0];
+    const materialPolicy = answers?.[6]?.[0];
+    const warrantyPeriod = answers?.[7]?.[0];
+    const extraServices = answers?.[8] || [];
+    const paymentMethods = answers?.[9]?.[0];
+    const safetyAdvice = answers?.[10] || [];
 
     // 1. Appointment Booking Intent
     if (
@@ -90,86 +106,157 @@ export class GigBotKnowledgeEngine {
       query.includes("slot")
     ) {
       return {
-        text: `I'd be glad to arrange that for you! ${name} is available for booking. You can pick your preferred date and time slot right here.`,
-        suggestions: ["Confirm Booking", "Check Rates First", "Emergency Slot"],
+        text: `I'd be glad to arrange that for you! ${name} is available for booking. You can select your preferred date, time slot, and service address right here.`,
+        suggestions: ["Confirm Booking", "Check Rates First", "Working Hours"],
         action: "book_appointment",
       };
     }
 
-    // 2. Pricing & Inspection Charges
+    // 2. Services Offered
+    if (
+      query.includes("service") ||
+      query.includes("what do you do") ||
+      query.includes("work") ||
+      query.includes("help") ||
+      query.includes("cleaning") ||
+      query.includes("clean") ||
+      query.includes("tank") ||
+      query.includes("carpet") ||
+      query.includes("kitchen")
+    ) {
+      const allServices = [...selectedServices, ...extraServices];
+      const servicesList = allServices.length > 0
+        ? allServices.map((s) => `• ${s}`).join("\n")
+        : `• Standard ${spec} diagnostics & repairs\n• On-demand home visits\n• Scheduled preventative maintenance\n• Quality guaranteed workmanship`;
+
+      return {
+        text: `${name} specializes in professional ${spec} services across ${loc}:\n\n${servicesList}\n\nWould you like an estimate or to schedule an appointment?`,
+        suggestions: ["Inspection Fee & Rates", "Working Hours", "Book Appointment"],
+      };
+    }
+
+    // 3. Pricing & Inspection Charges
     if (
       query.includes("rate") ||
       query.includes("price") ||
       query.includes("charge") ||
       query.includes("cost") ||
-      query.includes("fee")
+      query.includes("fee") ||
+      query.includes("visiting") ||
+      query.includes("inspection")
     ) {
+      const feeText = visitFee || `${rateStr} base visiting fee`;
+      const materialsText = materialPolicy || "Genuine branded materials billed at actual cost with receipt";
+
       return {
-        text: `${name}'s standard base service charge is approximately ${rateStr} plus applicable parts replacement costs. An initial diagnostic inspection fee is waived if repair work is accepted on site.`,
-        suggestions: ["Book Appointment", "Emergency visit fee", "Warranty details"],
+        text: `Here are the transparent pricing guidelines for ${name} (${spec}):\n\n💰 Visiting & Inspection Fee: ${feeText}\n📦 Materials & Spare Parts: ${materialsText}\n\nFor major repairs or full projects, ${name} provides a clear upfront quote before starting any work.`,
+        suggestions: ["Book Appointment", "Warranty Details", "Payment Methods"],
         action: "view_rates",
       };
     }
 
-    // 3. Emergency & Arrival Time
+    // 4. Emergency & Urgent Callouts
     if (
       query.includes("emergency") ||
       query.includes("urgent") ||
       query.includes("fast") ||
-      query.includes("time") ||
+      query.includes("now") ||
       query.includes("today") ||
       query.includes("how long")
     ) {
+      const emergencyText = emergencyAvailability || "Same-day urgent visits available based on daily schedule";
       return {
-        text: `${name} provides prioritized emergency response across the service radius, typically arriving within 45 to 90 minutes depending on traffic. Would you like to schedule an urgent slot now?`,
-        suggestions: ["Book Emergency Slot", "Check Pricing", "Ask Another Question"],
-        action: "book_appointment",
+        text: `🚨 Availability Notice:\n\n${emergencyText} by ${name}.\n\nWould you like to book the next available slot now?`,
+        suggestions: ["Book Appointment", "Working Hours", "Check Pricing"],
+        action: emergencyAvailability?.toLowerCase().includes("no emergency") ? undefined : "book_appointment",
       };
     }
 
-    // 4. Warranty & Guarantee
+    // 5. Working Hours
+    if (
+      query.includes("hour") ||
+      query.includes("time") ||
+      query.includes("open") ||
+      query.includes("sunday") ||
+      query.includes("weekend")
+    ) {
+      const hoursText = workingHours || "Mon - Sat: 8:30 AM to 7:00 PM";
+      return {
+        text: `⏰ Working Hours for ${name}:\n\n${hoursText}\n\nEven when offline, your booking request or query is logged and prioritized the moment ${name} is available.`,
+        suggestions: ["Book Appointment", "Service Area", "Services Offered"],
+      };
+    }
+
+    // 6. Coverage Area & Distance
+    if (
+      query.includes("area") ||
+      query.includes("distance") ||
+      query.includes("how far") ||
+      query.includes("travel") ||
+      query.includes("coverage") ||
+      query.includes("location") ||
+      query.includes("where") ||
+      query.includes("radius")
+    ) {
+      const areaText = coverageArea || "Within 15 km of local service hub";
+      return {
+        text: `📍 Service Coverage:\n\n${name} travels ${areaText} across ${loc}.\n\nIf your location is within this zone, you can book an on-site visit with standard travel terms.`,
+        suggestions: ["Book Appointment", "Inspection Charges", "Working Hours"],
+      };
+    }
+
+    // 7. Warranty & Guarantee
     if (
       query.includes("warranty") ||
       query.includes("guarantee") ||
       query.includes("safe") ||
-      query.includes("damage")
+      query.includes("damage") ||
+      query.includes("quality")
     ) {
+      const warrantyText = warrantyPeriod || "30-day post-service workmanship warranty";
       return {
-        text: `All service work performed by ${name} is backed by our standard 30-day post-service workmanship warranty. Any genuine parts replaced carry official manufacturer warranties.`,
-        suggestions: ["Book Appointment", "View Service Rates", "Ask Another Question"],
+        text: `🛡️ Service Guarantee:\n\n${name} provides a ${warrantyText} on all completed services. If any issue arises within this period, it will be inspected and resolved without extra charges.`,
+        suggestions: ["Book Appointment", "View Service Rates", "Payment Methods"],
       };
     }
 
-    // 5. Electrical specific
-    if (query.includes("mcb") || query.includes("wire") || query.includes("circuit") || query.includes("switch")) {
+    // 8. Payment Methods
+    if (
+      query.includes("pay") ||
+      query.includes("payment") ||
+      query.includes("upi") ||
+      query.includes("cash") ||
+      query.includes("bank") ||
+      query.includes("card")
+    ) {
+      const payText = paymentMethods || "UPI (Google Pay, PhonePe, Paytm), Bank Transfer, or Cash upon completion";
       return {
-        text: `${name} is licensed for high and low voltage circuit diagnostics, complete rewiring, MCB breaker replacement, and short circuit fault isolation using calibrated testing equipment.`,
-        suggestions: ["Book Electrical Repair", "View Rates", "Emergency Service"],
-        action: "book_appointment",
+        text: `💳 Accepted Payment Modes:\n\n${name} accepts: ${payText}.\n\nPayment is collected safely only after you inspect and approve the completed service.`,
+        suggestions: ["Book Appointment", "Service Charges", "Warranty Details"],
       };
     }
 
-    // 6. Plumbing specific
-    if (query.includes("leak") || query.includes("pipe") || query.includes("clog") || query.includes("drain")) {
-      return {
-        text: `${name} handles concealed pipe leak detection, motorized drain unclogging, CPVC/PVC line repairs, and fixture installations with minimal disruption to your home.`,
-        suggestions: ["Book Plumbing Repair", "Inspection Charges", "Emergency Response"],
-        action: "book_appointment",
-      };
-    }
+    // 9. Safety Advice / Preparation
+    if (
+      query.includes("safe") ||
+      query.includes("prepare") ||
+      query.includes("waiting") ||
+      query.includes("advice") ||
+      query.includes("instruction")
+    ) {
+      const safetyList = safetyAdvice.length > 0
+        ? safetyAdvice.map((s) => `• ${s}`).join("\n")
+        : "• Keep the work area accessible and safe\n• Ensure water and power supply are turned on if needed\n• Keep valuables securely stored away";
 
-    // 7. AC specific
-    if (query.includes("ac") || query.includes("gas") || query.includes("cool") || query.includes("jet")) {
       return {
-        text: `${name} specializes in high-pressure jet wet wash cleaning, leak testing with nitrogen, R32/R410A refrigerant gas top-ups, and PCB inverter repair for all leading split and window brands.`,
-        suggestions: ["Book AC Service", "Service Charges", "Cooling Warranty"],
-        action: "book_appointment",
+        text: `⚠️ Safety & Preparation Guidelines from ${name}:\n\n${safetyList}`,
+        suggestions: ["Book Appointment", "Working Hours", "Contact Support"],
       };
     }
 
     // Default Fallback
     return {
-      text: `${name} provides professional, KYC-verified ${specialization} services. We prioritize top-tier craft, punctual arrival, and transparent billing. Let me know if you would like to book a visit!`,
+      text: `${name} is a verified ${spec} professional serving ${loc}. Feel free to ask about rates, services, working hours, or book an appointment directly!`,
       suggestions: GigBotKnowledgeEngine.getDefaultSuggestions(specialization),
       action: null,
     };

@@ -373,6 +373,7 @@ function WorkspaceChatContent() {
   const [providerHasBot, setProviderHasBot] = React.useState(false);
   const [providerBotName, setProviderBotName] = React.useState<string | null>(null);
   const [providerBotWelcomeMessage, setProviderBotWelcomeMessage] = React.useState<string | null>(null);
+  const [providerBotAnswers, setProviderBotAnswers] = React.useState<Record<number, string[]> | null>(null);
   const [resolvedProviderId, setResolvedProviderId] = React.useState<number | null>(null);
   const [resolvedBotId, setResolvedBotId] = React.useState<number | null>(null);
   const [isAryaAiActive, setIsAryaAiActive] = React.useState(false);
@@ -429,6 +430,7 @@ function WorkspaceChatContent() {
     setResolvedProviderId(null);
     setResolvedBotId(null);
     setProviderBotWelcomeMessage(null);
+    setProviderBotAnswers(null);
   }, [activeRoom?.id]);
 
   // Check if target provider is offline and if they have completed bot setup
@@ -440,6 +442,7 @@ function WorkspaceChatContent() {
       setResolvedProviderId(null);
       setResolvedBotId(null);
       setProviderBotWelcomeMessage(null);
+      setProviderBotAnswers(null);
       return;
     }
 
@@ -513,6 +516,7 @@ function WorkspaceChatContent() {
               setResolvedProviderId(id);
               if (local.botId) setResolvedBotId(local.botId);
               if (local.welcomeMessage) setProviderBotWelcomeMessage(local.welcomeMessage);
+              if (local.answers) setProviderBotAnswers(local.answers);
             }
             return;
           }
@@ -528,6 +532,7 @@ function WorkspaceChatContent() {
               if (remote.providerId) setResolvedProviderId(remote.providerId);
               if (remote.botId) setResolvedBotId(remote.botId);
               if (remote.welcomeMessage) setProviderBotWelcomeMessage(remote.welcomeMessage);
+              if (remote.answers) setProviderBotAnswers(remote.answers);
               if (remote.isAvailableNow !== undefined && isAvailableNowParam === null) {
                 setIsProviderOffline(!remote.isAvailableNow);
               }
@@ -1122,6 +1127,7 @@ function WorkspaceChatContent() {
             role: m.sender === "user" ? "user" : "assistant",
             content: m.text,
           })),
+          answers: providerBotAnswers || undefined,
         }
       );
 
@@ -1138,7 +1144,14 @@ function WorkspaceChatContent() {
         setBotSuggestions(reply.suggestions);
       }
     } catch {
-      const fallback = GigBotKnowledgeEngine.generateAnswer(trimmed, pName, pSpec);
+      const fallback = GigBotKnowledgeEngine.generateAnswer(
+        trimmed,
+        pName,
+        pSpec,
+        undefined,
+        providerBotAnswers,
+        { city: "Kochi", area: "Kaloor" }
+      );
       const botMsg = {
         id: Date.now() + 2,
         sender: "bot" as const,
