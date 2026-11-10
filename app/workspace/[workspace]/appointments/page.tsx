@@ -514,12 +514,39 @@ export default function WorkspaceGigAppointmentsPage() {
     }
   };
 
-  const handleOpenChat = async (appt: GigAppointment) => {
-    const targetUserId = role === "client" ? appt.providerUserId : appt.clientId;
-    if (targetUserId) {
-      await gigApi.createChatSession(targetUserId, appt.id);
+  const handleOpenChat = (appt: GigAppointment) => {
+    if (!user) {
+      toast.error("Please log in to chat.");
+      return;
     }
-    router.push(`/workspace/${workspaceSlug}/chat`);
+
+    const otherUserId = role === "client" ? appt.providerUserId : appt.clientId;
+    const otherUserName =
+      (role === "client" ? appt.providerName : appt.clientName) ||
+      (role === "client" ? "Service Provider" : "Client");
+    const specialization =
+      appt.providerSpecialization || appt.category || appt.serviceTitle;
+    const providerId = appt.providerId;
+
+    if (!otherUserId) {
+      toast.error("Participant details not found for this appointment.");
+      return;
+    }
+
+    if (user.id === otherUserId) {
+      toast.error("You cannot start a chat with yourself.");
+      return;
+    }
+
+    const query = new URLSearchParams({
+      otherUserId: String(otherUserId),
+      otherUserName,
+      appointmentId: String(appt.id),
+      ...(providerId ? { providerId: String(providerId) } : {}),
+      ...(specialization ? { specialization } : {}),
+    });
+
+    router.push(`/workspace/${workspaceSlug}/chat?${query.toString()}`);
   };
 
   const totalPoints = pointsWallet?.totalPoints ?? 120;

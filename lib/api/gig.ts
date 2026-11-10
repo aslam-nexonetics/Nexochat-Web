@@ -637,12 +637,23 @@ export const gigApi = {
 
   // ── 5. Direct Chat Session ──────────────────────────────────────────────────
 
-  async createChatSession(recipientId: number, appointmentId?: number): Promise<any> {
-    const res = await apiClient.post<{ success: boolean; data: any }>("/chat/GIG/chat/create/", {
-      recipient_id: recipientId,
-      ...(appointmentId ? { appointment_id: appointmentId } : {}),
-    });
-    return res.data;
+  async createChatSession(
+    recipientId: number,
+    appointmentId?: number,
+    recipientName?: string
+  ): Promise<any> {
+    try {
+      const res = await apiClient.post<any>("/chat/GIG/chat/start/", {
+        chat_type: "direct",
+        participant_ids: [recipientId],
+        channel_name: recipientName || "Direct Chat",
+        description: appointmentId ? `Appointment #${appointmentId}` : "Direct conversation",
+      });
+      return res?.channel || res?.data || res;
+    } catch (err) {
+      console.warn("createChatSession fallback error:", err);
+      return null;
+    }
   },
 
   async submitJobReview(

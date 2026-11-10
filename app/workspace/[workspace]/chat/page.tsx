@@ -334,6 +334,7 @@ function WorkspaceChatContent() {
   const providerIdParam = searchParams.get("providerId");
   const isAvailableNowParam = searchParams.get("isAvailableNow");
   const specializationParam = searchParams.get("specialization");
+  const appointmentIdParam = searchParams.get("appointmentId");
 
   const { user } = useAuthStore();
   const { activeCollection, collections, selectCollectionByName } = useWorkspaceStore();
@@ -1295,6 +1296,12 @@ function WorkspaceChatContent() {
                           {isGigCollection && !isAryaAiActive && (
                             <span title="Verified Professional" className="inline-flex items-center">
                               <ShieldCheck className="h-4 w-4 text-blue-600 fill-blue-50 shrink-0" />
+                            </span>
+                          )}
+                          {appointmentIdParam && (
+                            <span className="px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                              <Clock className="h-3 w-3 text-amber-600" />
+                              <span>Appointment #{appointmentIdParam}</span>
                             </span>
                           )}
                           <Badge
