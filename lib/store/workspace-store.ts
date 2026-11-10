@@ -6,6 +6,7 @@ interface WorkspaceState {
   collections: Collection[];
   availableCollections: Collection[];
   activeCollection: Collection | null;
+  pendingCollectionName: string | null;
   isLoading: boolean;
   sidebarCollapsed: boolean;
   isMobileNavOpen: boolean;
@@ -23,6 +24,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   collections: [],
   availableCollections: [],
   activeCollection: null,
+  pendingCollectionName: null,
   isLoading: false,
   sidebarCollapsed: false,
   isMobileNavOpen: false,
@@ -67,39 +69,101 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           }))
         : [];
 
-      const currentActive = get().activeCollection;
-      let nextActive = currentActive;
+      // Determine active collection in priority order:
+      // 1. Explicit pending collection request (e.g., from the active route being mounted)
+      // 2. URL slug parsed directly from window.location.pathname
+      // 3. Stored collection from localStorage (nexo_last_active_collection)
+      // 4. Current active collection if already set and still valid
+      // 5. First joined collection, or first available collection
+      let targetSlug = get().pendingCollectionName?.toLowerCase().trim() || null;
 
-      // Default to first collection if none selected or if previously selected is no longer valid
-      if (parsedJoined.length > 0) {
-        if (!currentActive || !parsedJoined.some((c) => c.id === currentActive.id)) {
-          nextActive = parsedJoined[0];
+      if (!targetSlug && typeof window !== "undefined") {
+        const path = window.location.pathname;
+        const match = path.match(/^\/workspace\/([^\/]+)/);
+        if (match && match[1] && match[1].toLowerCase() !== "workspace") {
+          targetSlug = match[1].toLowerCase().trim();
         }
-      } else if (parsedAvail.length > 0) {
-        nextActive = parsedAvail[0];
+      }
+
+      if (!targetSlug && typeof window !== "undefined") {
+        try {
+          const saved = localStorage.getItem("nexo_last_active_collection");
+          if (saved) {
+            targetSlug = saved.toLowerCase().trim();
+          }
+        } catch {
+          // ignore localStorage access issues
+        }
+      }
+
+      let nextActive: Collection | null = null;
+      if (targetSlug) {
+        nextActive =
+          parsedJoined.find((c) => c.collectionName.toLowerCase().trim() === targetSlug) ||
+          parsedAvail.find((c) => c.collectionName.toLowerCase().trim() === targetSlug) ||
+          null;
+      }
+
+      if (!nextActive) {
+        const currentActive = get().activeCollection;
+        if (currentActive && parsedJoined.some((c) => c.id === currentActive.id)) {
+          nextActive = currentActive;
+        } else if (parsedJoined.length > 0) {
+          nextActive = parsedJoined[0];
+        } else if (parsedAvail.length > 0) {
+          nextActive = parsedAvail[0];
+        }
+      }
+
+      // Persist chosen active collection
+      if (nextActive && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            "nexo_last_active_collection",
+            nextActive.collectionName.toLowerCase().trim()
+          );
+        } catch {
+          // ignore
+        }
       }
 
       set({
         collections: parsedJoined,
         availableCollections: parsedAvail,
         activeCollection: nextActive,
+        pendingCollectionName: null,
         isLoading: false,
       });
-    } catch (err) {
-      console.error("Failed to load collections:", err);
+    } catch (err: any) {
+      if (err?.status !== 401 && err?.status !== 403) {
+        console.error("Failed to load collections:", err);
+      }
       set({ isLoading: false });
     }
   },
 
   selectCollectionByName: (name: string) => {
-    const { collections, availableCollections } = get();
+    if (!name) return;
     const normalized = name.toLowerCase().trim();
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("nexo_last_active_collection", normalized);
+      } catch {
+        // ignore
+      }
+    }
+
+    const { collections, availableCollections } = get();
     const found =
       collections.find((c) => c.collectionName.toLowerCase().trim() === normalized) ||
       availableCollections.find((c) => c.collectionName.toLowerCase().trim() === normalized);
 
     if (found) {
-      set({ activeCollection: found });
+      set({ activeCollection: found, pendingCollectionName: null });
+    } else {
+      // Collections might not be loaded yet; store as pending so loadCollections picks it up
+      set({ pendingCollectionName: normalized });
     }
   },
 
@@ -110,7 +174,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       availableCollections.find((c) => c.id === id);
 
     if (found) {
-      set({ activeCollection: found });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            "nexo_last_active_collection",
+            found.collectionName.toLowerCase().trim()
+          );
+        } catch {
+          // ignore
+        }
+      }
+      set({ activeCollection: found, pendingCollectionName: null });
     }
   },
 

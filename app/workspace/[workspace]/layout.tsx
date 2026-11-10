@@ -67,15 +67,27 @@ export default function CollectionWorkspaceLayout({
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const currentCollection =
-    activeCollection ||
+  const matchedBySlug =
     collections.find(
       (c) => c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase()
-    ) || {
+    ) ||
+    (activeCollection &&
+    activeCollection.collectionName.toLowerCase().trim() ===
+      workspaceSlug.toLowerCase()
+      ? activeCollection
+      : null);
+
+  const currentCollection =
+    matchedBySlug || {
       id: 0,
       collectionName:
         workspaceSlug.charAt(0).toUpperCase() + workspaceSlug.slice(1),
-      properties: ["Chat", "Profile"],
+      properties:
+        workspaceSlug.toLowerCase() === "gig"
+          ? ["Gigs", "Appointments", "Chat", "Profile"]
+          : workspaceSlug.toLowerCase() === "techform"
+          ? ["Jobs", "Applications", "Recruiter", "Profile", "Chat"]
+          : ["Chat", "Profile"],
       collectionType: "general",
       status: "active",
     };

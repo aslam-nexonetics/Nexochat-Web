@@ -75,6 +75,12 @@ export default function WorkspaceGigAppointmentsPage() {
   const { user } = useAuthStore();
   const { selectCollectionByName } = useWorkspaceStore();
 
+  React.useEffect(() => {
+    if (workspaceSlug) {
+      selectCollectionByName(workspaceSlug);
+    }
+  }, [workspaceSlug, selectCollectionByName]);
+
   const [role, setRole] = React.useState<"client" | "provider">("client");
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [appointments, setAppointments] = React.useState<GigAppointment[]>([]);

@@ -25,8 +25,8 @@ export async function GET() {
 
   let userRes = accessToken ? await fetchUser(accessToken) : null;
 
-  // If token is expired (401) and we have a refresh token, rotate token automatically
-  if ((!userRes || userRes.status === 401) && refreshToken) {
+  // If token is expired or unauthorized (401 / 403) and we have a refresh token, rotate token automatically
+  if ((!userRes || userRes.status === 401 || userRes.status === 403) && refreshToken) {
     try {
       const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh/`, {
         method: "POST",

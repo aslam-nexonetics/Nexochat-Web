@@ -116,6 +116,12 @@ export default function WorkspaceGigsPage() {
   const { user } = useAuthStore();
   const { selectCollectionByName } = useWorkspaceStore();
 
+  React.useEffect(() => {
+    if (workspaceSlug) {
+      selectCollectionByName(workspaceSlug);
+    }
+  }, [workspaceSlug, selectCollectionByName]);
+
   // Navigation flow: Screen 1 = categories, Screen 2 = results
   const [currentScreen, setCurrentScreen] = React.useState<"categories" | "results">("categories");
 

@@ -32,8 +32,46 @@ async function proxyRequest(
   const targetUrl = `${API_BASE_URL}/${subpath}${url.search}`;
 
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token")?.value;
+  let accessToken = cookieStore.get("access_token")?.value;
+  const refreshToken = cookieStore.get("refresh_token")?.value;
   const shalabamToken = cookieStore.get("shalabam_token")?.value;
+
+  // Proactively refresh if access_token is absent but refresh_token is present
+  if (!accessToken && refreshToken && !subpath.startsWith("auth/")) {
+    try {
+      const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        accessToken = refreshData.access_token;
+        const isProduction = process.env.NODE_ENV === "production";
+
+        cookieStore.set("access_token", accessToken!, {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24,
+        });
+
+        if (refreshData.refresh_token) {
+          cookieStore.set("refresh_token", refreshData.refresh_token, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+          });
+        }
+      }
+    } catch (e) {
+      // Continue and let backend respond
+    }
+  }
 
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -73,15 +111,19 @@ async function proxyRequest(
       body,
     });
 
-    // If 401 Unauthorized, attempt proactive server-side token refresh once
-    if (backendRes.status === 401) {
-      const refreshToken = cookieStore.get("refresh_token")?.value;
-      if (refreshToken) {
+    // If 401 Unauthorized or 403 Forbidden on protected endpoints, attempt token refresh once
+    const isAuthError =
+      backendRes.status === 401 ||
+      (backendRes.status === 403 && !subpath.startsWith("auth/"));
+
+    if (isAuthError) {
+      const activeRefreshToken = cookieStore.get("refresh_token")?.value || refreshToken;
+      if (activeRefreshToken) {
         try {
           const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh_token: refreshToken }),
+            body: JSON.stringify({ refresh_token: activeRefreshToken }),
           });
 
           if (refreshRes.ok) {

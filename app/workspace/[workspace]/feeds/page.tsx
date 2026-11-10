@@ -61,15 +61,25 @@ export default function WorkspaceFeedsPage() {
     }
   }, [workspaceSlug, selectCollectionByName]);
 
+  const matchedBySlug =
+    collections.find(
+      (c) => c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase()
+    ) ||
+    (activeCollection &&
+    activeCollection.collectionName.toLowerCase().trim() ===
+      workspaceSlug.toLowerCase()
+      ? activeCollection
+      : null);
+
   const currentCollection =
-    activeCollection ||
-    collections.find((c) => c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase()) || {
+    matchedBySlug || {
       id: 0,
-      collectionName: workspaceSlug.charAt(0).toUpperCase() + workspaceSlug.slice(1),
+      collectionName:
+        workspaceSlug.charAt(0).toUpperCase() + workspaceSlug.slice(1),
       properties: ["nexo_feeds"],
     };
 
-  const collectionName = currentCollection.collectionName;
+  const collectionName = matchedBySlug?.collectionName || workspaceSlug.toUpperCase();
 
   // 1. Fetch posts
   const loadPosts = React.useCallback(async () => {

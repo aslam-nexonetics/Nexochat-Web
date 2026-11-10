@@ -13,8 +13,17 @@ export default function WorkspaceRootLayout({
   const { checkAuth } = useAuthStore();
 
   React.useEffect(() => {
-    checkAuth();
-    loadCollections();
+    let isMounted = true;
+    const init = async () => {
+      const isAuthed = await checkAuth();
+      if (isAuthed && isMounted) {
+        await loadCollections();
+      }
+    };
+    init();
+    return () => {
+      isMounted = false;
+    };
   }, [checkAuth, loadCollections]);
 
   return (

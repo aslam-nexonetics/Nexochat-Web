@@ -82,8 +82,8 @@ class ApiClient {
       ...rest,
     });
 
-    // Proactive 401 retry
-    if (response.status === 401 && !path.includes("auth/")) {
+    // Proactive 401 / 403 retry (FastAPI backends return 401 or 403 when unauthenticated/expired)
+    if ((response.status === 401 || response.status === 403) && !path.includes("auth/")) {
       const refreshed = await this.handleTokenRefresh();
       if (refreshed) {
         response = await fetch(url, {
