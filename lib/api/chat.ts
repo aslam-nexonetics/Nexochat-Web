@@ -274,22 +274,30 @@ export const chatApi = {
     collectionName: string,
     participantId: number,
     participantName: string,
-    specialization?: string | null
+    specialization?: string | null,
+    currentUserId?: number
   ): Promise<ChatRoom | null> {
+    const ids = currentUserId
+      ? [currentUserId, participantId].sort((a, b) => a - b)
+      : [participantId];
+    const channelName =
+      ids.length === 2 ? `direct_${ids[0]}_${ids[1]}` : `direct_${participantId}`;
+
     try {
+      // 1. Primary path matching Flutter ChatRemoteDataSource (chat_type: 'private')
       const res = await apiClient.post<any>(`/chat/${collectionName}/chat/start/`, {
-        chat_type: "direct",
+        chat_type: "private",
         participant_ids: [participantId],
-        channel_name: participantName,
-        description: "Direct conversation",
+        channel_name: channelName,
+        description: "string",
       });
 
-      const rawChannel = res?.channel || res?.data || res;
+      const rawChannel = res?.channel || res?.data?.channel || res?.data || res;
       return {
-        id: rawChannel.id,
-        channelName: rawChannel.channel_name || participantName,
-        displayName: participantName,
-        chatType: "direct",
+        id: rawChannel.id ?? rawChannel.chat_id,
+        channelName: rawChannel.channel_name || channelName,
+        displayName: rawChannel.display_name || participantName,
+        chatType: rawChannel.chat_type || "private",
         description: rawChannel.description || "",
         specialization: specialization || null,
         role: specialization || null,
@@ -305,9 +313,42 @@ export const chatApi = {
           },
         ],
       };
-    } catch (err) {
-      console.error(`Failed to start chat with participant ${participantId}:`, err);
-      return null;
+    } catch (err: any) {
+      // 2. Resilient fallback with chat_type: 'direct' if backend requires direct
+      try {
+        const fallbackRes = await apiClient.post<any>(`/chat/${collectionName}/chat/start/`, {
+          chat_type: "direct",
+          participant_ids: [participantId],
+          channel_name: channelName,
+          description: "string",
+        });
+
+        const rawChannel =
+          fallbackRes?.channel || fallbackRes?.data?.channel || fallbackRes?.data || fallbackRes;
+        return {
+          id: rawChannel.id ?? rawChannel.chat_id,
+          channelName: rawChannel.channel_name || channelName,
+          displayName: rawChannel.display_name || participantName,
+          chatType: rawChannel.chat_type || "direct",
+          description: rawChannel.description || "",
+          specialization: specialization || null,
+          role: specialization || null,
+          otherUserId: participantId,
+          participants: [
+            {
+              id: participantId,
+              userId: participantId,
+              username: participantName,
+              fullName: participantName,
+              role: specialization,
+              specialization,
+            },
+          ],
+        };
+      } catch (fallbackErr) {
+        console.error(`Failed to start chat with participant ${participantId}:`, err);
+        return null;
+      }
     }
   },
 

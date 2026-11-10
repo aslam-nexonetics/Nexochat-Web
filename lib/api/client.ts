@@ -102,7 +102,15 @@ class ApiClient {
       }
 
       const errorMessage =
-        errorData.detail ||
+        (typeof errorData.detail === "string" ? errorData.detail : null) ||
+        (Array.isArray(errorData.detail)
+          ? errorData.detail
+              .map((e: any) => `${e.loc?.slice(1)?.join(".") || e.loc?.join(".") || "field"}: ${e.msg || e.message || JSON.stringify(e)}`)
+              .join("; ")
+          : null) ||
+        (typeof errorData.detail === "object" && errorData.detail !== null
+          ? JSON.stringify(errorData.detail)
+          : null) ||
         errorData.message ||
         errorData.error ||
         `Request failed with status ${response.status}`;

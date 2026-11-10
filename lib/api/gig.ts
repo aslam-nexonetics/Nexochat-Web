@@ -640,16 +640,23 @@ export const gigApi = {
   async createChatSession(
     recipientId: number,
     appointmentId?: number,
-    recipientName?: string
+    recipientName?: string,
+    currentUserId?: number
   ): Promise<any> {
+    const ids = currentUserId
+      ? [currentUserId, recipientId].sort((a, b) => a - b)
+      : [recipientId];
+    const channelName =
+      ids.length === 2 ? `direct_${ids[0]}_${ids[1]}` : `direct_${recipientId}`;
+
     try {
       const res = await apiClient.post<any>("/chat/GIG/chat/start/", {
-        chat_type: "direct",
+        chat_type: "private",
         participant_ids: [recipientId],
-        channel_name: recipientName || "Direct Chat",
-        description: appointmentId ? `Appointment #${appointmentId}` : "Direct conversation",
+        channel_name: channelName,
+        description: "string",
       });
-      return res?.channel || res?.data || res;
+      return res?.channel || res?.data?.channel || res?.data || res;
     } catch (err) {
       console.warn("createChatSession fallback error:", err);
       return null;

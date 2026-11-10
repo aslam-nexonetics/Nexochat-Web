@@ -536,22 +536,43 @@ function WorkspaceChatContent() {
         // If otherUserIdParam is given in URL, try to match or initiate room
         if (otherUserIdParam) {
           const targetUserId = parseInt(otherUserIdParam, 10);
-          const matched = fetchedRooms.find(
-            (r) =>
-              r.otherUserId === targetUserId ||
+          const matched = fetchedRooms.find((r) => {
+            if (r.otherUserId && Number(r.otherUserId) === targetUserId) return true;
+            if (
               r.participants?.some(
-                (p) => p.userId === targetUserId || p.id === targetUserId
+                (p) => Number(p.userId) === targetUserId || Number(p.id) === targetUserId
               )
-          );
+            ) {
+              return true;
+            }
+            if (r.channelName && r.channelName.startsWith("direct_")) {
+              const parts = r.channelName
+                .split("_")
+                .map((p) => Number(p))
+                .filter(Boolean);
+              if (parts.includes(targetUserId)) return true;
+            }
+            if (
+              otherUserNameParam &&
+              r.displayName &&
+              r.displayName.toLowerCase().trim() ===
+                otherUserNameParam.toLowerCase().trim()
+            ) {
+              return true;
+            }
+            return false;
+          });
+
           if (matched) {
             setActiveRoom(matched);
           } else {
-            // Create or retrieve room with target user
+            // Create or retrieve room with target user matching Flutter
             const newRoom = await chatApi.startChat(
               collectionName,
               targetUserId,
               otherUserNameParam || "Provider",
-              specializationParam || null
+              specializationParam || null,
+              user?.id
             );
             if (newRoom) {
               setRooms((prev) => [
