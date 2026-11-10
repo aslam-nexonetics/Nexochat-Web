@@ -372,6 +372,9 @@ function WorkspaceChatContent() {
   const [isProviderOffline, setIsProviderOffline] = React.useState(false);
   const [providerHasBot, setProviderHasBot] = React.useState(false);
   const [providerBotName, setProviderBotName] = React.useState<string | null>(null);
+  const [providerBotWelcomeMessage, setProviderBotWelcomeMessage] = React.useState<string | null>(null);
+  const [resolvedProviderId, setResolvedProviderId] = React.useState<number | null>(null);
+  const [resolvedBotId, setResolvedBotId] = React.useState<number | null>(null);
   const [isAryaAiActive, setIsAryaAiActive] = React.useState(false);
   const [declinedBot, setDeclinedBot] = React.useState(false);
   const [isBotThinking, setIsBotThinking] = React.useState(false);
@@ -423,6 +426,9 @@ function WorkspaceChatContent() {
     setDeclinedBot(false);
     setBotSessionMessages([]);
     setBotSuggestions([]);
+    setResolvedProviderId(null);
+    setResolvedBotId(null);
+    setProviderBotWelcomeMessage(null);
   }, [activeRoom?.id]);
 
   // Check if target provider is offline and if they have completed bot setup
@@ -431,8 +437,13 @@ function WorkspaceChatContent() {
       setIsProviderOffline(false);
       setProviderHasBot(false);
       setProviderBotName(null);
+      setResolvedProviderId(null);
+      setResolvedBotId(null);
+      setProviderBotWelcomeMessage(null);
       return;
     }
+
+    let isMounted = true;
 
     const pId = providerIdParam ? parseInt(providerIdParam, 10) : null;
     const targetUserId = otherUserIdParam
@@ -452,50 +463,85 @@ function WorkspaceChatContent() {
       pId === 12 ||
       roomTitle.toLowerCase().includes("arya");
 
-    // 1. Resolve offline status
-    if (isAvailableNowParam !== null) {
-      setIsProviderOffline(isAvailableNowParam === "false");
-    } else if (isAryaDemo) {
-      setIsProviderOffline(true);
-    } else if (pId) {
-      gigApi.fetchProviderDetails(pId).then((pro) => {
-        if (pro) {
-          setIsProviderOffline(!pro.isAvailableNow);
-        }
-      });
-    }
-
-    // 2. Resolve bot completion status (Local Storage -> Backend -> Arya Demo)
-    const idsToCheck = [pId, targetUserId].filter(Boolean) as number[];
-    let hasBot = false;
-
     const checkBot = async () => {
-      for (const id of idsToCheck) {
-        // A. Check local storage
-        const local = await GigBoatQuestionsService.getBoatConfig(id, {
-          providerName: roomTitle,
-        });
-        if (local && (local.isReady || local.isActive)) {
-          setProviderHasBot(true);
-          setProviderBotName(local.botName || local.boatName || `${roomTitle}'s AI Assistant`);
-          hasBot = true;
-          return;
-        }
+      let candidateProviderId = pId;
 
-        // B. Check backend
-        const remote = await gigApi.fetchProviderBot(id);
-        if (remote && remote.isActive) {
-          setProviderHasBot(true);
-          setProviderBotName(remote.botName || `${roomTitle}'s AI Assistant`);
-          hasBot = true;
-          return;
-        }
+      // 1. If providerId was not passed in URL params, resolve candidate provider from gigApi.searchProviders()
+      if (!candidateProviderId && targetUserId) {
+        try {
+          const providers = await gigApi.searchProviders();
+          const match = providers.find(
+            (p) => p.userId === targetUserId || p.id === targetUserId
+          );
+          if (match && isMounted) {
+            candidateProviderId = match.id;
+            if (isAvailableNowParam === null) {
+              setIsProviderOffline(!match.isAvailableNow);
+            }
+          }
+        } catch (_) {}
       }
 
-      if (!hasBot) {
+      // 2. Resolve offline status
+      if (isAvailableNowParam !== null) {
+        setIsProviderOffline(isAvailableNowParam === "false");
+      } else if (isAryaDemo) {
+        setIsProviderOffline(true);
+      } else if (candidateProviderId) {
+        gigApi.fetchProviderDetails(candidateProviderId).then((pro) => {
+          if (pro && isMounted) {
+            setIsProviderOffline(!pro.isAvailableNow);
+          }
+        }).catch(() => {});
+      }
+
+      // 3. Resolve bot completion status (Local Storage -> Backend -> Arya Demo)
+      const idsToCheck = Array.from(
+        new Set([candidateProviderId, pId, targetUserId].filter(Boolean))
+      ) as number[];
+
+      for (const id of idsToCheck) {
+        // A. Check local storage
+        try {
+          const local = await GigBoatQuestionsService.getBoatConfig(id, {
+            providerName: roomTitle,
+          });
+          if (local && (local.isReady || local.isActive)) {
+            if (isMounted) {
+              setProviderHasBot(true);
+              setProviderBotName(local.botName || local.boatName || `${roomTitle}'s AI Assistant`);
+              setResolvedProviderId(id);
+              if (local.botId) setResolvedBotId(local.botId);
+              if (local.welcomeMessage) setProviderBotWelcomeMessage(local.welcomeMessage);
+            }
+            return;
+          }
+        } catch (_) {}
+
+        // B. Check backend
+        try {
+          const remote = await gigApi.fetchProviderBot(id);
+          if (remote && remote.isActive) {
+            if (isMounted) {
+              setProviderHasBot(true);
+              setProviderBotName(remote.botName || `${roomTitle}'s AI Assistant`);
+              if (remote.providerId) setResolvedProviderId(remote.providerId);
+              if (remote.botId) setResolvedBotId(remote.botId);
+              if (remote.welcomeMessage) setProviderBotWelcomeMessage(remote.welcomeMessage);
+              if (remote.isAvailableNow !== undefined && isAvailableNowParam === null) {
+                setIsProviderOffline(!remote.isAvailableNow);
+              }
+            }
+            return;
+          }
+        } catch (_) {}
+      }
+
+      if (isMounted) {
         if (isAryaDemo) {
           setProviderHasBot(true);
           setProviderBotName("Arya AI");
+          setResolvedProviderId(12);
         } else {
           setProviderHasBot(false);
           setProviderBotName(null);
@@ -504,6 +550,10 @@ function WorkspaceChatContent() {
     };
 
     checkBot();
+
+    return () => {
+      isMounted = false;
+    };
   }, [
     isGigCollection,
     activeRoom,
@@ -987,7 +1037,9 @@ function WorkspaceChatContent() {
     setBotSessionMessages([userMsg]);
 
     setTimeout(() => {
-      const welcome = GigBotKnowledgeEngine.getWelcomeMessage(pName, pSpec, bName);
+      const welcome =
+        providerBotWelcomeMessage ||
+        GigBotKnowledgeEngine.getWelcomeMessage(pName, pSpec, bName);
       const botMsg = {
         id: Date.now() + 1,
         sender: "bot" as const,
@@ -1032,33 +1084,46 @@ function WorkspaceChatContent() {
       (pName.toLowerCase().includes("arya")
         ? "Arya AI"
         : `${pName}'s AI Assistant`);
-    const pId = providerIdParam
-      ? parseInt(providerIdParam, 10)
-      : activeRoom?.otherUserId || 0;
+    const pId =
+      resolvedProviderId ||
+      (providerIdParam ? parseInt(providerIdParam, 10) : null) ||
+      activeRoom?.otherUserId ||
+      0;
 
     try {
-      const reply: GigBotReply = await gigApi.queryProviderBot(pId, trimmed, {
-        id: pId,
-        userId: activeRoom?.otherUserId || 0,
-        firstName: pName,
-        lastName: "",
-        specialization: pSpec,
-        city: "Kochi",
-        area: "Kaloor",
-        rating: 5,
-        reviewCount: 0,
-        status: "active",
-        isAvailableNow: false,
-        availabilityStatus: "offline",
-        isIdentityVerified: true,
-        isSelfieVerified: true,
-        isLocationVerified: true,
-        hasRealAvatar: true,
-        rewardPoints: 0,
-        tierLevel: "Bronze",
-        completedWorksCount: 0,
-        canBookInstantly: true,
-      });
+      const reply: GigBotReply = await gigApi.queryProviderBot(
+        pId,
+        trimmed,
+        {
+          id: pId,
+          userId: activeRoom?.otherUserId || 0,
+          firstName: pName,
+          lastName: "",
+          specialization: pSpec,
+          city: "Kochi",
+          area: "Kaloor",
+          rating: 5,
+          reviewCount: 0,
+          status: "active",
+          isAvailableNow: false,
+          availabilityStatus: "offline",
+          isIdentityVerified: true,
+          isSelfieVerified: true,
+          isLocationVerified: true,
+          hasRealAvatar: true,
+          rewardPoints: 0,
+          tierLevel: "Bronze",
+          completedWorksCount: 0,
+          canBookInstantly: true,
+        },
+        {
+          botId: resolvedBotId || undefined,
+          conversationHistory: botSessionMessages.map((m) => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.text,
+          })),
+        }
+      );
 
       const botMsg = {
         id: Date.now() + 2,

@@ -581,23 +581,59 @@ export const gigApi = {
 
   // ── 4. AI Bot Assistant Integration ─────────────────────────────────────────
 
-  async fetchProviderBot(providerId: number): Promise<{ isActive: boolean; botName?: string } | null> {
-    try {
-      const res = await apiClient.get<any>(`/jobs/GIG/bot/profile/${providerId}`);
-      if (res && (res.is_active === true || res.is_ready === true || res.bot_name || res.provider_name)) {
-        return {
-          isActive: true,
-          botName: res.bot_name || res.provider_name || "AI Assistant",
-        };
-      }
-    } catch {
-      // Check for Arya kg (providerId 12) fallback matching Flutter app
-      if (providerId === 12) {
-        return { isActive: true, botName: "Arya's AI Assistant" };
+  async fetchProviderBot(providerId: number): Promise<{
+    isActive: boolean;
+    botName?: string;
+    botId?: number;
+    providerId?: number;
+    welcomeMessage?: string;
+    isAvailableNow?: boolean;
+  } | null> {
+    const candidateEndpoints = [
+      `/jobs/GIG/bot/profile/${providerId}`,
+      `/jobs/GIG/bot/provider/${providerId}`,
+    ];
+
+    for (const endpoint of candidateEndpoints) {
+      try {
+        const res = await apiClient.get<any>(endpoint);
+        const data = res?.data ?? res;
+        if (
+          data &&
+          (data.is_active === true ||
+            data.is_ready === true ||
+            data.isActive === true ||
+            data.bot_name ||
+            data.botName ||
+            data.provider_name ||
+            data.providerName)
+        ) {
+          const rawName = data.bot_name || data.botName;
+          const pName = data.provider_name || data.providerName;
+          const botName =
+            rawName || (pName ? `${pName}'s AI Assistant` : "AI Assistant");
+
+          return {
+            isActive: data.is_active ?? data.isActive ?? true,
+            botName,
+            botId: data.bot_id ?? data.botId,
+            providerId: data.provider_id ?? data.providerId ?? providerId,
+            welcomeMessage: data.welcome_message ?? data.welcomeMessage,
+            isAvailableNow: data.is_provider_currently_available,
+          };
+        }
+      } catch {
+        // Continue to next endpoint candidate
       }
     }
+
+    // Check for Arya kg (providerId 12) fallback matching Flutter app
     if (providerId === 12) {
-      return { isActive: true, botName: "Arya's AI Assistant" };
+      return {
+        isActive: true,
+        botName: "Arya's AI Assistant",
+        isAvailableNow: false,
+      };
     }
     return null;
   },
@@ -605,26 +641,47 @@ export const gigApi = {
   async queryProviderBot(
     providerId: number,
     query: string,
-    provider: GigProvider
+    provider: GigProvider,
+    options?: {
+      botId?: number;
+      conversationHistory?: Array<{ role: string; content: string }>;
+    }
   ): Promise<GigBotReply> {
-    try {
-      const res = await apiClient.post<{ success: boolean; data?: any; reply_text?: string }>(
-        "/jobs/GIG/bot/query",
-        {
-          provider_id: providerId,
-          query,
+    const candidateEndpoints = [
+      "/jobs/GIG/bot/chat/query",
+      "/jobs/GIG/bot/query",
+    ];
+
+    for (const endpoint of candidateEndpoints) {
+      try {
+        const res = await apiClient.post<{ success: boolean; data?: any; reply_text?: string }>(
+          endpoint,
+          {
+            provider_id: providerId > 0 ? providerId : undefined,
+            bot_id: options?.botId && options.botId > 0 ? options.botId : undefined,
+            query,
+            conversation_history: options?.conversationHistory,
+          }
+        );
+        const data = res?.data ?? res;
+        const text =
+          data?.reply_text ||
+          data?.replyText ||
+          res?.reply_text ||
+          data?.answer;
+        if (text) {
+          return {
+            text,
+            suggestions:
+              data?.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0
+                ? data.suggestions
+                : GigBotKnowledgeEngine.getDefaultSuggestions(provider.specialization),
+            action: data?.action || null,
+          };
         }
-      );
-      const text = res?.data?.reply_text || res?.reply_text || res?.data?.answer;
-      if (text) {
-        return {
-          text,
-          suggestions: GigBotKnowledgeEngine.getDefaultSuggestions(provider.specialization),
-          action: res?.data?.action || null,
-        };
+      } catch {
+        // Graceful fallback to next endpoint or knowledge engine
       }
-    } catch {
-      // Graceful fallback to knowledge engine
     }
 
     return GigBotKnowledgeEngine.generateAnswer(
