@@ -119,6 +119,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSavingSummary, setIsSavingSummary] = React.useState(false);
   const [isUploadingResume, setIsUploadingResume] = React.useState(false);
+  const [isDeletingResume, setIsDeletingResume] = React.useState(false);
 
   // Form states for summary
   const [summary, setSummary] = React.useState("");
@@ -126,14 +127,11 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
   const [desiredPosition, setDesiredPosition] = React.useState("");
   const [isAvailable, setIsAvailable] = React.useState(true);
 
-  // Dialogs
+  // Experience Dialogs & Form
   const [isExpOpen, setIsExpOpen] = React.useState(false);
-  const [isEduOpen, setIsEduOpen] = React.useState(false);
-  const [skillInput, setSkillInput] = React.useState("");
-  const [isAddingSkill, setIsAddingSkill] = React.useState(false);
-
-  // New experience form
-  const [newExp, setNewExp] = React.useState({
+  const [isEditExpOpen, setIsEditExpOpen] = React.useState(false);
+  const [editingExpId, setEditingExpId] = React.useState<string | null>(null);
+  const [expForm, setExpForm] = React.useState({
     title: "",
     company: "",
     location: "",
@@ -143,13 +141,47 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
     description: "",
   });
 
-  // New education form
-  const [newEdu, setNewEdu] = React.useState({
+  // Education Dialogs & Form
+  const [isEduOpen, setIsEduOpen] = React.useState(false);
+  const [isEditEduOpen, setIsEditEduOpen] = React.useState(false);
+  const [editingEduId, setEditingEduId] = React.useState<string | null>(null);
+  const [eduForm, setEduForm] = React.useState({
     degree: "",
     fieldOfStudy: "",
     school: "",
     startDate: "",
     endDate: "",
+    grade: "",
+    isCurrent: false,
+  });
+
+  // Skills
+  const [skillInput, setSkillInput] = React.useState("");
+  const [skillLevel, setSkillLevel] = React.useState<"Beginner" | "Intermediate" | "Expert">("Intermediate");
+  const [isAddingSkill, setIsAddingSkill] = React.useState(false);
+
+  // Certificates Dialogs & Form
+  const [isCertOpen, setIsCertOpen] = React.useState(false);
+  const [isEditCertOpen, setIsEditCertOpen] = React.useState(false);
+  const [editingCertId, setEditingCertId] = React.useState<string | null>(null);
+  const [certForm, setCertForm] = React.useState({
+    name: "",
+    issuingOrganization: "",
+    issueDate: "",
+    expirationDate: "",
+    doesNotExpire: false,
+    credentialId: "",
+    credentialUrl: "",
+  });
+
+  // Languages Dialog & Form
+  const [isLangOpen, setIsLangOpen] = React.useState(false);
+  const [langForm, setLangForm] = React.useState<{
+    name: string;
+    proficiency: "Basic" | "Conversational" | "Fluent" | "Native";
+  }>({
+    name: "",
+    proficiency: "Fluent",
   });
 
   const loadProfile = React.useCallback(async () => {
@@ -174,6 +206,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
     loadProfile();
   }, [loadProfile]);
 
+  // ── Summary Handler ──
   const handleSaveSummary = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingSummary(true);
@@ -185,16 +218,17 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
         isAvailableForWork: isAvailable,
       });
       if (updated) {
-        setProfile(updated);
+        setProfile((prev) => (prev ? { ...prev, professionalSummary: summary, currentPosition, desiredPosition, isAvailableForWork: isAvailable } : null));
         toast.success("Profile headline & summary updated successfully!");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to update profile summary");
     } finally {
       setIsSavingSummary(false);
     }
   };
 
+  // ── Resume Handlers ──
   const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -213,33 +247,48 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
         toast.success("Resume uploaded successfully!");
       }
       await loadProfile();
-    } catch (err) {
-      toast.error("Failed to upload resume");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload resume");
     } finally {
       setIsUploadingResume(false);
     }
   };
 
+  const handleDeleteResume = async () => {
+    if (!confirm("Are you sure you want to remove your attached resume document?")) return;
+    setIsDeletingResume(true);
+    try {
+      await jobsApi.deleteResume();
+      setProfile((prev) => (prev ? { ...prev, resumeUrl: null } : null));
+      toast.success("Resume removed from profile");
+    } catch {
+      toast.error("Failed to delete resume");
+    } finally {
+      setIsDeletingResume(false);
+    }
+  };
+
+  // ── Experience Handlers ──
   const handleAddExperience = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newExp.title || !newExp.company) {
+    if (!expForm.title || !expForm.company) {
       toast.error("Job title and company are required");
       return;
     }
 
     try {
       await jobsApi.addExperience({
-        title: newExp.title,
-        company: newExp.company,
-        location: newExp.location,
-        startDate: newExp.startDate,
-        endDate: newExp.isCurrent ? undefined : newExp.endDate,
-        isCurrent: newExp.isCurrent,
-        description: newExp.description,
+        title: expForm.title,
+        company: expForm.company,
+        location: expForm.location,
+        startDate: expForm.startDate,
+        endDate: expForm.isCurrent ? undefined : expForm.endDate,
+        isCurrent: expForm.isCurrent,
+        description: expForm.description,
       });
       await loadProfile();
       setIsExpOpen(false);
-      setNewExp({
+      setExpForm({
         title: "",
         company: "",
         location: "",
@@ -249,63 +298,149 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
         description: "",
       });
       toast.success("Experience record added!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to add experience");
+    }
+  };
+
+  const handleOpenEditExperience = (exp: Experience) => {
+    setEditingExpId(exp.id || null);
+    setExpForm({
+      title: exp.title,
+      company: exp.company,
+      location: exp.location || "",
+      startDate: exp.startDate,
+      endDate: exp.endDate || "",
+      isCurrent: exp.isCurrent,
+      description: exp.description || "",
+    });
+    setIsEditExpOpen(true);
+  };
+
+  const handleUpdateExperience = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpId || !expForm.title || !expForm.company) {
+      toast.error("Job title and company are required");
+      return;
+    }
+
+    try {
+      await jobsApi.updateExperience(editingExpId, {
+        title: expForm.title,
+        company: expForm.company,
+        location: expForm.location,
+        startDate: expForm.startDate,
+        endDate: expForm.isCurrent ? undefined : expForm.endDate,
+        isCurrent: expForm.isCurrent,
+        description: expForm.description,
+      });
+      await loadProfile();
+      setIsEditExpOpen(false);
+      setEditingExpId(null);
+      toast.success("Experience updated!");
+    } catch {
+      toast.error("Failed to update experience");
     }
   };
 
   const handleDeleteExperience = async (id?: string) => {
     if (!id) return;
+    if (!confirm("Are you sure you want to delete this experience record?")) return;
     try {
       await jobsApi.deleteExperience(id);
       await loadProfile();
       toast.success("Experience removed");
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete experience");
     }
   };
 
+  // ── Education Handlers ──
   const handleAddEducation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEdu.degree || !newEdu.school) {
+    if (!eduForm.degree || !eduForm.school) {
       toast.error("Degree and school are required");
       return;
     }
 
     try {
       await jobsApi.addEducation({
-        degree: newEdu.degree,
-        fieldOfStudy: newEdu.fieldOfStudy,
-        school: newEdu.school,
-        startDate: newEdu.startDate,
-        endDate: newEdu.endDate,
+        degree: eduForm.degree,
+        fieldOfStudy: eduForm.fieldOfStudy,
+        school: eduForm.school,
+        startDate: eduForm.startDate,
+        endDate: eduForm.isCurrent ? undefined : eduForm.endDate,
+        grade: eduForm.grade,
       });
       await loadProfile();
       setIsEduOpen(false);
-      setNewEdu({
+      setEduForm({
         degree: "",
         fieldOfStudy: "",
         school: "",
         startDate: "",
         endDate: "",
+        grade: "",
+        isCurrent: false,
       });
       toast.success("Education record added!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to add education");
+    }
+  };
+
+  const handleOpenEditEducation = (edu: Education) => {
+    setEditingEduId(edu.id || null);
+    setEduForm({
+      degree: edu.degree,
+      fieldOfStudy: edu.fieldOfStudy || "",
+      school: edu.school,
+      startDate: edu.startDate,
+      endDate: edu.endDate || "",
+      grade: edu.grade || "",
+      isCurrent: !edu.endDate,
+    });
+    setIsEditEduOpen(true);
+  };
+
+  const handleUpdateEducation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEduId || !eduForm.degree || !eduForm.school) {
+      toast.error("Degree and school are required");
+      return;
+    }
+
+    try {
+      await jobsApi.updateEducation(editingEduId, {
+        degree: eduForm.degree,
+        fieldOfStudy: eduForm.fieldOfStudy,
+        school: eduForm.school,
+        startDate: eduForm.startDate,
+        endDate: eduForm.isCurrent ? undefined : eduForm.endDate,
+        grade: eduForm.grade,
+      });
+      await loadProfile();
+      setIsEditEduOpen(false);
+      setEditingEduId(null);
+      toast.success("Education updated!");
+    } catch {
+      toast.error("Failed to update education");
     }
   };
 
   const handleDeleteEducation = async (id?: string) => {
     if (!id) return;
+    if (!confirm("Are you sure you want to delete this education record?")) return;
     try {
       await jobsApi.deleteEducation(id);
       await loadProfile();
       toast.success("Education removed");
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete education");
     }
   };
 
+  // ── Skills Handlers ──
   const handleAddSkill = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = skillInput.trim();
@@ -319,11 +454,11 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
     setIsAddingSkill(true);
     try {
-      await jobsApi.addSkill({ name, level: "Intermediate" });
+      await jobsApi.addSkill({ name, level: skillLevel });
       await loadProfile();
       setSkillInput("");
       toast.success("Skill added!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to add skill");
     } finally {
       setIsAddingSkill(false);
@@ -336,8 +471,132 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
       await jobsApi.deleteSkill(skillId);
       await loadProfile();
       toast.success("Skill removed");
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove skill");
+    }
+  };
+
+  // ── Certificates Handlers ──
+  const handleAddCertificate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!certForm.name || !certForm.issuingOrganization || !certForm.issueDate) {
+      toast.error("Name, issuing organization, and issue date are required");
+      return;
+    }
+
+    try {
+      await jobsApi.addCertificate({
+        name: certForm.name,
+        issuingOrganization: certForm.issuingOrganization,
+        issueDate: certForm.issueDate,
+        expirationDate: certForm.doesNotExpire ? undefined : certForm.expirationDate || undefined,
+        credentialId: certForm.credentialId,
+        credentialUrl: certForm.credentialUrl,
+      });
+      await loadProfile();
+      setIsCertOpen(false);
+      setCertForm({
+        name: "",
+        issuingOrganization: "",
+        issueDate: "",
+        expirationDate: "",
+        doesNotExpire: false,
+        credentialId: "",
+        credentialUrl: "",
+      });
+      toast.success("Certificate added!");
+    } catch {
+      toast.error("Failed to add certificate");
+    }
+  };
+
+  const handleOpenEditCertificate = (cert: any) => {
+    setEditingCertId(cert.id || null);
+    setCertForm({
+      name: cert.name,
+      issuingOrganization: cert.issuingOrganization,
+      issueDate: cert.issueDate,
+      expirationDate: cert.expirationDate || "",
+      doesNotExpire: !cert.expirationDate,
+      credentialId: cert.credentialId || "",
+      credentialUrl: cert.credentialUrl || "",
+    });
+    setIsEditCertOpen(true);
+  };
+
+  const handleUpdateCertificate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCertId || !certForm.name || !certForm.issuingOrganization || !certForm.issueDate) {
+      toast.error("Name, issuing organization, and issue date are required");
+      return;
+    }
+
+    try {
+      await jobsApi.updateCertificate(editingCertId, {
+        name: certForm.name,
+        issuingOrganization: certForm.issuingOrganization,
+        issueDate: certForm.issueDate,
+        expirationDate: certForm.doesNotExpire ? undefined : certForm.expirationDate || undefined,
+        credentialId: certForm.credentialId,
+        credentialUrl: certForm.credentialUrl,
+      });
+      await loadProfile();
+      setIsEditCertOpen(false);
+      setEditingCertId(null);
+      toast.success("Certificate updated!");
+    } catch {
+      toast.error("Failed to update certificate");
+    }
+  };
+
+  const handleDeleteCertificate = async (id?: string) => {
+    if (!id) return;
+    if (!confirm("Are you sure you want to delete this certificate?")) return;
+    try {
+      await jobsApi.deleteCertificate(id);
+      await loadProfile();
+      toast.success("Certificate removed");
+    } catch {
+      toast.error("Failed to delete certificate");
+    }
+  };
+
+  // ── Languages Handlers ──
+  const handleAddLanguage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!langForm.name.trim()) {
+      toast.error("Language name is required");
+      return;
+    }
+
+    const currentLangs = profile?.languages || [];
+    if (currentLangs.some((l) => l.name.toLowerCase() === langForm.name.trim().toLowerCase())) {
+      toast.error("Language already added");
+      return;
+    }
+
+    try {
+      await jobsApi.addLanguage({
+        name: langForm.name.trim(),
+        proficiency: langForm.proficiency,
+      });
+      await loadProfile();
+      setIsLangOpen(false);
+      setLangForm({ name: "", proficiency: "Fluent" });
+      toast.success("Language added!");
+    } catch {
+      toast.error("Failed to add language");
+    }
+  };
+
+  const handleDeleteLanguage = async (id?: string) => {
+    if (!id) return;
+    try {
+      await jobsApi.deleteLanguage(id);
+      await loadProfile();
+      toast.success("Language removed");
+    } catch {
+      toast.error("Failed to delete language");
     }
   };
 
@@ -345,13 +604,13 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
     return (
       <div className="py-24 flex flex-col items-center justify-center text-center">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-3" />
-        <p className="text-sm font-medium text-slate-600">Loading Candidate CV...</p>
+        <p className="text-sm font-medium text-slate-600">Loading Candidate CV Profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12 font-sans">
+    <div className="max-w-5xl mx-auto space-y-6 pb-16 font-sans">
       {/* ── Header Card ─────────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -419,29 +678,89 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
                   ) : (
                     <Upload className="h-3.5 w-3.5 text-slate-500" />
                   )}
-                  <span>Upload PDF Resume</span>
+                  <span>{profile?.resumeUrl ? "Update PDF Resume" : "Upload PDF Resume"}</span>
                 </div>
               </label>
             )}
           </div>
         </div>
 
-        {/* Resume Status Notice */}
-        {profile?.resumeUrl && (
-          <div className="mt-6 p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-2 text-indigo-900 font-medium">
-              <FileText className="h-4 w-4 text-indigo-600" />
-              <span>Resume PDF file attached to your recruitment dossier</span>
+        {/* Resume Status Card */}
+        {profile?.resumeUrl ? (
+          <div className="mt-6 p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-indigo-100/80 text-indigo-700 flex items-center justify-center shrink-0">
+                <FileText className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900">Current Resume (PDF Document)</p>
+                <p className="text-[11px] text-slate-500">
+                  Visible to verified hiring managers & recruiters in Techform
+                </p>
+              </div>
             </div>
-            <a
-              href={profile.resumeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 shrink-0"
-            >
-              <span>View Resume</span>
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={profile.resumeUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-indigo-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>View PDF</span>
+              </a>
+              {!isViewingOther && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isDeletingResume}
+                  onClick={handleDeleteResume}
+                  className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 border-rose-200 hover:bg-rose-50 cursor-pointer"
+                  title="Remove resume"
+                >
+                  {isDeletingResume ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 p-4 rounded-xl bg-amber-50/60 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900">No Resume Uploaded</p>
+                <p className="text-[11px] text-amber-700">
+                  Upload your CV in PDF format to fast-track your 1-click applications.
+                </p>
+              </div>
+            </div>
+            {!isViewingOther && (
+              <label className="cursor-pointer shrink-0">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handleResumeUpload}
+                  disabled={isUploadingResume}
+                />
+                <Button
+                  size="sm"
+                  type="button"
+                  disabled={isUploadingResume}
+                  className="h-8 px-3 text-xs bg-amber-700 hover:bg-amber-800 text-white gap-1 pointer-events-none"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Upload Now</span>
+                </Button>
+              </label>
+            )}
           </div>
         )}
       </div>
@@ -452,19 +771,24 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
         className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4"
       >
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Career Summary</h2>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isSavingSummary}
-            className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs"
-          >
-            {isSavingSummary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            <span>Save Summary</span>
-          </Button>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Career Headline & Summary</h2>
+            <p className="text-xs text-slate-500">Present your specialty, desired role, and bio</p>
+          </div>
+          {!isViewingOther && (
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isSavingSummary}
+              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs cursor-pointer"
+            >
+              {isSavingSummary ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              <span>Save Headline</span>
+            </Button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Current Role / Title
@@ -473,8 +797,9 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
               type="text"
               placeholder="e.g. Senior Frontend Engineer"
               value={currentPosition}
+              disabled={isViewingOther}
               onChange={(e) => setCurrentPosition(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-75"
             />
           </div>
           <div>
@@ -485,9 +810,24 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
               type="text"
               placeholder="e.g. Lead Software Architect"
               value={desiredPosition}
+              disabled={isViewingOther}
               onChange={(e) => setDesiredPosition(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-75"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Availability Status
+            </label>
+            <select
+              value={isAvailable ? "available" : "not_looking"}
+              disabled={isViewingOther}
+              onChange={(e) => setIsAvailable(e.target.value === "available")}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-75"
+            >
+              <option value="available">Available for Work</option>
+              <option value="not_looking">Not Looking / Employed</option>
+            </select>
           </div>
         </div>
 
@@ -499,66 +839,109 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
             rows={3}
             placeholder="Highlight your background, core technical proficiencies, and career goals..."
             value={summary}
+            disabled={isViewingOther}
             onChange={(e) => setSummary(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none leading-relaxed"
+            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none leading-relaxed disabled:opacity-75"
           />
         </div>
       </form>
 
       {/* ── Skills Chips ────────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-        <h2 className="text-base font-bold text-slate-900 mb-2 tracking-tight">Key Skills</h2>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {(profile?.skills || []).map((skill) => (
-            <span
-              key={skill.id || skill.name}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-semibold text-indigo-700"
-            >
-              <span>{skill.name}</span>
-              {skill.id && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSkill(skill.id)}
-                  className="hover:text-rose-600 transition-colors cursor-pointer"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </span>
-          ))}
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Key Skills & Competencies</h2>
+            <p className="text-xs text-slate-500">Technical languages, frameworks, and tools</p>
+          </div>
         </div>
 
-        <form onSubmit={handleAddSkill} className="flex items-center gap-2 max-w-sm">
-          <input
-            type="text"
-            placeholder="Add skill (e.g. React, Docker)..."
-            value={skillInput}
-            onChange={(e) => setSkillInput(e.target.value)}
-            className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!skillInput.trim() || isAddingSkill}
-            className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold"
-          >
-            Add
-          </Button>
-        </form>
+        <div className="flex flex-wrap gap-2 my-4">
+          {(profile?.skills || []).length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No skills listed yet.</p>
+          ) : (
+            (profile?.skills || []).map((skill) => (
+              <span
+                key={skill.id || skill.name}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-semibold text-indigo-700"
+              >
+                <span>{skill.name}</span>
+                {skill.level && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white border border-indigo-200 text-indigo-600 font-medium">
+                    {skill.level}
+                  </span>
+                )}
+                {!isViewingOther && skill.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill.id)}
+                    className="hover:text-rose-600 transition-colors cursor-pointer ml-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            ))
+          )}
+        </div>
+
+        {!isViewingOther && (
+          <form onSubmit={handleAddSkill} className="flex flex-wrap items-center gap-2 max-w-lg pt-1">
+            <input
+              type="text"
+              placeholder="Add skill (e.g. React, Go, Docker)..."
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              className="flex-1 min-w-[160px] px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+            <select
+              value={skillLevel}
+              onChange={(e) => setSkillLevel(e.target.value as any)}
+              className="px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            >
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Expert">Expert</option>
+            </select>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!skillInput.trim() || isAddingSkill}
+              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer"
+            >
+              Add
+            </Button>
+          </form>
+        )}
       </div>
 
       {/* ── Work Experience ─────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Work Experience</h2>
-          <Button
-            size="sm"
-            onClick={() => setIsExpOpen(true)}
-            className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add Position</span>
-          </Button>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Work Experience</h2>
+            <p className="text-xs text-slate-500">Professional career journey and accomplishments</p>
+          </div>
+          {!isViewingOther && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setExpForm({
+                  title: "",
+                  company: "",
+                  location: "",
+                  startDate: "",
+                  endDate: "",
+                  isCurrent: false,
+                  description: "",
+                });
+                setIsExpOpen(true);
+              }}
+              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Position</span>
+            </Button>
+          )}
         </div>
 
         <div className="divide-y divide-slate-100">
@@ -567,23 +950,40 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
           ) : (
             (profile?.experiences || []).map((exp) => (
               <div key={exp.id || exp.title} className="py-4 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
-                <div>
+                <div className="space-y-1">
                   <h3 className="font-bold text-sm text-slate-900">{exp.title}</h3>
-                  <p className="text-xs font-medium text-indigo-600">{exp.company} {exp.location ? `· ${exp.location}` : ""}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {exp.startDate} - {exp.isCurrent ? "Present" : exp.endDate || "Present"}
+                  <p className="text-xs font-medium text-indigo-600">
+                    {exp.company} {exp.location ? `· ${exp.location}` : ""}
+                  </p>
+                  <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>
+                      {exp.startDate} – {exp.isCurrent ? "Present" : exp.endDate || "Present"}
+                    </span>
                   </p>
                   {exp.description && (
-                    <p className="text-xs text-slate-600 mt-2 leading-relaxed">{exp.description}</p>
+                    <p className="text-xs text-slate-600 mt-2 leading-relaxed whitespace-pre-line">
+                      {exp.description}
+                    </p>
                   )}
                 </div>
-                {exp.id && (
-                  <button
-                    onClick={() => handleDeleteExperience(exp.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1.5 transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                {!isViewingOther && exp.id && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleOpenEditExperience(exp)}
+                      className="text-slate-400 hover:text-indigo-600 p-1.5 transition-colors cursor-pointer"
+                      title="Edit experience"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteExperience(exp.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1.5 transition-colors cursor-pointer"
+                      title="Delete experience"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             ))
@@ -594,15 +994,31 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
       {/* ── Education ───────────────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Education</h2>
-          <Button
-            size="sm"
-            onClick={() => setIsEduOpen(true)}
-            className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add Education</span>
-          </Button>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Education</h2>
+            <p className="text-xs text-slate-500">Degrees, academic institutions, and coursework</p>
+          </div>
+          {!isViewingOther && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setEduForm({
+                  degree: "",
+                  fieldOfStudy: "",
+                  school: "",
+                  startDate: "",
+                  endDate: "",
+                  grade: "",
+                  isCurrent: false,
+                });
+                setIsEduOpen(true);
+              }}
+              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Education</span>
+            </Button>
+          )}
         </div>
 
         <div className="divide-y divide-slate-100">
@@ -611,21 +1027,180 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
           ) : (
             (profile?.educations || []).map((edu) => (
               <div key={edu.id || edu.degree} className="py-4 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
-                <div>
+                <div className="space-y-1">
                   <h3 className="font-bold text-sm text-slate-900">
                     {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ""}
                   </h3>
                   <p className="text-xs font-medium text-slate-600">{edu.school}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {edu.startDate} - {edu.endDate || "Present"}
+                  <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>
+                      {edu.startDate} – {edu.endDate || "Present"}
+                    </span>
+                    {edu.grade && <span className="ml-2 font-medium text-slate-500">· Grade: {edu.grade}</span>}
                   </p>
                 </div>
-                {edu.id && (
+                {!isViewingOther && edu.id && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleOpenEditEducation(edu)}
+                      className="text-slate-400 hover:text-indigo-600 p-1.5 transition-colors cursor-pointer"
+                      title="Edit education"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEducation(edu.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1.5 transition-colors cursor-pointer"
+                      title="Delete education"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* ── Certificates & Licenses ─────────────────────────────────────── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Award className="h-4.5 w-4.5 text-indigo-600" />
+              <span>Certificates & Licenses</span>
+            </h2>
+            <p className="text-xs text-slate-500">Verified technical accreditations and credentials</p>
+          </div>
+          {!isViewingOther && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setCertForm({
+                  name: "",
+                  issuingOrganization: "",
+                  issueDate: "",
+                  expirationDate: "",
+                  doesNotExpire: false,
+                  credentialId: "",
+                  credentialUrl: "",
+                });
+                setIsCertOpen(true);
+              }}
+              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Certificate</span>
+            </Button>
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {(profile?.certificates || []).length === 0 ? (
+            <p className="py-4 text-xs text-slate-400 italic">No certificates added yet.</p>
+          ) : (
+            (profile?.certificates || []).map((cert) => (
+              <div key={cert.id || cert.name} className="py-4 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="font-bold text-sm text-slate-900">{cert.name}</h3>
+                  <p className="text-xs font-medium text-slate-700">{cert.issuingOrganization}</p>
+                  <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>
+                      Issued {cert.issueDate} {cert.expirationDate ? `· Expires ${cert.expirationDate}` : "· Does not expire"}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                    {cert.credentialId && (
+                      <span className="text-slate-500 text-[11px]">
+                        ID: <span className="font-mono text-slate-700">{cert.credentialId}</span>
+                      </span>
+                    )}
+                    {cert.credentialUrl && (
+                      <a
+                        href={cert.credentialUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-600 hover:text-indigo-700 font-medium inline-flex items-center gap-1 text-[11px]"
+                      >
+                        <span>Show Credential</span>
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                {!isViewingOther && cert.id && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleOpenEditCertificate(cert)}
+                      className="text-slate-400 hover:text-indigo-600 p-1.5 transition-colors cursor-pointer"
+                      title="Edit certificate"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCertificate(cert.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1.5 transition-colors cursor-pointer"
+                      title="Delete certificate"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* ── Languages ───────────────────────────────────────────────────── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Globe className="h-4.5 w-4.5 text-indigo-600" />
+              <span>Languages</span>
+            </h2>
+            <p className="text-xs text-slate-500">Spoken and written language proficiencies</p>
+          </div>
+          {!isViewingOther && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setLangForm({ name: "", proficiency: "Fluent" });
+                setIsLangOpen(true);
+              }}
+              className="h-8 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold gap-1 shadow-2xs cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Language</span>
+            </Button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2.5">
+          {(profile?.languages || []).length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No languages listed yet.</p>
+          ) : (
+            (profile?.languages || []).map((lang) => (
+              <div
+                key={lang.id || lang.name}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800"
+              >
+                <span>{lang.name}</span>
+                <Badge variant="outline" className="text-[10px] bg-white border-slate-200 font-medium text-slate-600">
+                  {lang.proficiency}
+                </Badge>
+                {!isViewingOther && lang.id && (
                   <button
-                    onClick={() => handleDeleteEducation(edu.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1.5 transition-colors"
+                    type="button"
+                    onClick={() => handleDeleteLanguage(lang.id)}
+                    className="hover:text-rose-600 text-slate-400 transition-colors cursor-pointer"
+                    title="Remove language"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <X className="h-3 w-3" />
                   </button>
                 )}
               </div>
@@ -634,7 +1209,9 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
         </div>
       </div>
 
-      {/* Experience Dialog */}
+      {/* ── Dialogs ─────────────────────────────────────────────────────── */}
+
+      {/* Add Experience Dialog */}
       <Dialog open={isExpOpen} onOpenChange={setIsExpOpen}>
         <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
           <DialogHeader>
@@ -646,8 +1223,9 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
               <input
                 type="text"
                 required
-                value={newExp.title}
-                onChange={(e) => setNewExp({ ...newExp, title: e.target.value })}
+                placeholder="e.g. Senior Frontend Engineer"
+                value={expForm.title}
+                onChange={(e) => setExpForm({ ...expForm, title: e.target.value })}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -656,19 +1234,31 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
               <input
                 type="text"
                 required
-                value={newExp.company}
-                onChange={(e) => setNewExp({ ...newExp, company: e.target.value })}
+                placeholder="e.g. Google, Acme Inc."
+                value={expForm.company}
+                onChange={(e) => setExpForm({ ...expForm, company: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Location</label>
+              <input
+                type="text"
+                placeholder="e.g. San Francisco, CA or Remote"
+                value={expForm.location}
+                onChange={(e) => setExpForm({ ...expForm, location: e.target.value })}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date *</label>
                 <input
                   type="text"
+                  required
                   placeholder="e.g. Jan 2022"
-                  value={newExp.startDate}
-                  onChange={(e) => setNewExp({ ...newExp, startDate: e.target.value })}
+                  value={expForm.startDate}
+                  onChange={(e) => setExpForm({ ...expForm, startDate: e.target.value })}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -677,12 +1267,34 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
                 <input
                   type="text"
                   placeholder="e.g. Present"
-                  value={newExp.endDate}
-                  disabled={newExp.isCurrent}
-                  onChange={(e) => setNewExp({ ...newExp, endDate: e.target.value })}
+                  value={expForm.endDate}
+                  disabled={expForm.isCurrent}
+                  onChange={(e) => setExpForm({ ...expForm, endDate: e.target.value })}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                 />
               </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="isCurrentExp"
+                checked={expForm.isCurrent}
+                onChange={(e) => setExpForm({ ...expForm, isCurrent: e.target.checked })}
+                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <label htmlFor="isCurrentExp" className="text-xs text-slate-700 font-medium cursor-pointer">
+                I am currently working in this role
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+              <textarea
+                rows={3}
+                placeholder="Key responsibilities and technical achievements..."
+                value={expForm.description}
+                onChange={(e) => setExpForm({ ...expForm, description: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              />
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setIsExpOpen(false)}>
@@ -696,7 +1308,98 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
         </DialogContent>
       </Dialog>
 
-      {/* Education Dialog */}
+      {/* Edit Experience Dialog */}
+      <Dialog open={isEditExpOpen} onOpenChange={setIsEditExpOpen}>
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">Edit Work Experience</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateExperience} className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Title *</label>
+              <input
+                type="text"
+                required
+                value={expForm.title}
+                onChange={(e) => setExpForm({ ...expForm, title: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Company *</label>
+              <input
+                type="text"
+                required
+                value={expForm.company}
+                onChange={(e) => setExpForm({ ...expForm, company: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Location</label>
+              <input
+                type="text"
+                value={expForm.location}
+                onChange={(e) => setExpForm({ ...expForm, location: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date *</label>
+                <input
+                  type="text"
+                  required
+                  value={expForm.startDate}
+                  onChange={(e) => setExpForm({ ...expForm, startDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">End Date</label>
+                <input
+                  type="text"
+                  value={expForm.endDate}
+                  disabled={expForm.isCurrent}
+                  onChange={(e) => setExpForm({ ...expForm, endDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="isCurrentExpEdit"
+                checked={expForm.isCurrent}
+                onChange={(e) => setExpForm({ ...expForm, isCurrent: e.target.checked })}
+                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <label htmlFor="isCurrentExpEdit" className="text-xs text-slate-700 font-medium cursor-pointer">
+                I am currently working in this role
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+              <textarea
+                rows={3}
+                value={expForm.description}
+                onChange={(e) => setExpForm({ ...expForm, description: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditExpOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Education Dialog */}
       <Dialog open={isEduOpen} onOpenChange={setIsEduOpen}>
         <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
           <DialogHeader>
@@ -709,19 +1412,75 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
                 type="text"
                 required
                 placeholder="e.g. Bachelor of Technology"
-                value={newEdu.degree}
-                onChange={(e) => setNewEdu({ ...newEdu, degree: e.target.value })}
+                value={eduForm.degree}
+                onChange={(e) => setEduForm({ ...eduForm, degree: e.target.value })}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Institution / School *</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Field of Study</label>
+              <input
+                type="text"
+                placeholder="e.g. Computer Science, Information Technology"
+                value={eduForm.fieldOfStudy}
+                onChange={(e) => setEduForm({ ...eduForm, fieldOfStudy: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Institution / University *</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Cochin University"
-                value={newEdu.school}
-                onChange={(e) => setNewEdu({ ...newEdu, school: e.target.value })}
+                placeholder="e.g. Stanford University, Cochin University"
+                value={eduForm.school}
+                onChange={(e) => setEduForm({ ...eduForm, school: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 2018"
+                  value={eduForm.startDate}
+                  onChange={(e) => setEduForm({ ...eduForm, startDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">End Date</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 2022"
+                  value={eduForm.endDate}
+                  disabled={eduForm.isCurrent}
+                  onChange={(e) => setEduForm({ ...eduForm, endDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="isCurrentEdu"
+                checked={eduForm.isCurrent}
+                onChange={(e) => setEduForm({ ...eduForm, isCurrent: e.target.checked })}
+                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <label htmlFor="isCurrentEdu" className="text-xs text-slate-700 font-medium cursor-pointer">
+                I am currently studying here
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Grade / GPA (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. 3.8 GPA or First Class"
+                value={eduForm.grade}
+                onChange={(e) => setEduForm({ ...eduForm, grade: e.target.value })}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -736,9 +1495,332 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Education Dialog */}
+      <Dialog open={isEditEduOpen} onOpenChange={setIsEditEduOpen}>
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">Edit Education</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateEducation} className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Degree *</label>
+              <input
+                type="text"
+                required
+                value={eduForm.degree}
+                onChange={(e) => setEduForm({ ...eduForm, degree: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Field of Study</label>
+              <input
+                type="text"
+                value={eduForm.fieldOfStudy}
+                onChange={(e) => setEduForm({ ...eduForm, fieldOfStudy: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Institution / University *</label>
+              <input
+                type="text"
+                required
+                value={eduForm.school}
+                onChange={(e) => setEduForm({ ...eduForm, school: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date *</label>
+                <input
+                  type="text"
+                  required
+                  value={eduForm.startDate}
+                  onChange={(e) => setEduForm({ ...eduForm, startDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">End Date</label>
+                <input
+                  type="text"
+                  value={eduForm.endDate}
+                  disabled={eduForm.isCurrent}
+                  onChange={(e) => setEduForm({ ...eduForm, endDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="isCurrentEduEdit"
+                checked={eduForm.isCurrent}
+                onChange={(e) => setEduForm({ ...eduForm, isCurrent: e.target.checked })}
+                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <label htmlFor="isCurrentEduEdit" className="text-xs text-slate-700 font-medium cursor-pointer">
+                I am currently studying here
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Grade / GPA</label>
+              <input
+                type="text"
+                value={eduForm.grade}
+                onChange={(e) => setEduForm({ ...eduForm, grade: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditEduOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Certificate Dialog */}
+      <Dialog open={isCertOpen} onOpenChange={setIsCertOpen}>
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">Add Certificate</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddCertificate} className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Certificate Name *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. AWS Certified Solutions Architect"
+                value={certForm.name}
+                onChange={(e) => setCertForm({ ...certForm, name: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Issuing Organization *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Amazon Web Services"
+                value={certForm.issuingOrganization}
+                onChange={(e) => setCertForm({ ...certForm, issuingOrganization: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Issue Date *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="YYYY-MM or Jan 2023"
+                  value={certForm.issueDate}
+                  onChange={(e) => setCertForm({ ...certForm, issueDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Expiration Date</label>
+                <input
+                  type="text"
+                  placeholder="YYYY-MM"
+                  value={certForm.expirationDate}
+                  disabled={certForm.doesNotExpire}
+                  onChange={(e) => setCertForm({ ...certForm, expirationDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="certDoesNotExpire"
+                checked={certForm.doesNotExpire}
+                onChange={(e) => setCertForm({ ...certForm, doesNotExpire: e.target.checked })}
+                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <label htmlFor="certDoesNotExpire" className="text-xs text-slate-700 font-medium cursor-pointer">
+                This credential does not expire
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Credential ID (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. AWS-12345678"
+                value={certForm.credentialId}
+                onChange={(e) => setCertForm({ ...certForm, credentialId: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Credential URL (Optional)</label>
+              <input
+                type="url"
+                placeholder="https://www.credly.com/badges/..."
+                value={certForm.credentialUrl}
+                onChange={(e) => setCertForm({ ...certForm, credentialUrl: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsCertOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                Add Certificate
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Certificate Dialog */}
+      <Dialog open={isEditCertOpen} onOpenChange={setIsEditCertOpen}>
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">Edit Certificate</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateCertificate} className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Certificate Name *</label>
+              <input
+                type="text"
+                required
+                value={certForm.name}
+                onChange={(e) => setCertForm({ ...certForm, name: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Issuing Organization *</label>
+              <input
+                type="text"
+                required
+                value={certForm.issuingOrganization}
+                onChange={(e) => setCertForm({ ...certForm, issuingOrganization: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Issue Date *</label>
+                <input
+                  type="text"
+                  required
+                  value={certForm.issueDate}
+                  onChange={(e) => setCertForm({ ...certForm, issueDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Expiration Date</label>
+                <input
+                  type="text"
+                  value={certForm.expirationDate}
+                  disabled={certForm.doesNotExpire}
+                  onChange={(e) => setCertForm({ ...certForm, expirationDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="certDoesNotExpireEdit"
+                checked={certForm.doesNotExpire}
+                onChange={(e) => setCertForm({ ...certForm, doesNotExpire: e.target.checked })}
+                className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <label htmlFor="certDoesNotExpireEdit" className="text-xs text-slate-700 font-medium cursor-pointer">
+                This credential does not expire
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Credential ID (Optional)</label>
+              <input
+                type="text"
+                value={certForm.credentialId}
+                onChange={(e) => setCertForm({ ...certForm, credentialId: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Credential URL (Optional)</label>
+              <input
+                type="url"
+                value={certForm.credentialUrl}
+                onChange={(e) => setCertForm({ ...certForm, credentialUrl: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditCertOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Language Dialog */}
+      <Dialog open={isLangOpen} onOpenChange={setIsLangOpen}>
+        <DialogContent className="sm:max-w-xs bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900">Add Language</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddLanguage} className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Language Name *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. English, German, French"
+                value={langForm.name}
+                onChange={(e) => setLangForm({ ...langForm, name: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Proficiency Level</label>
+              <select
+                value={langForm.proficiency}
+                onChange={(e) => setLangForm({ ...langForm, proficiency: e.target.value as any })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="Basic">Basic (Elementary)</option>
+                <option value="Conversational">Conversational (Intermediate)</option>
+                <option value="Fluent">Fluent (Professional)</option>
+                <option value="Native">Native or Bilingual</option>
+              </select>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsLangOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                Add Language
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. GIG: Provider Registration & KYC Profile View (Matching GigScreen.register)

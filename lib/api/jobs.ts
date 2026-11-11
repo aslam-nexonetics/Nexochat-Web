@@ -136,7 +136,23 @@ export const jobsApi = {
     return res.data?.jobs || [];
   },
 
-  // 8. Create Job (Recruiter)
+  // 8. Companies
+  async getCompanies(params: { myOnly?: boolean; collection?: string } = {}): Promise<CompanyInfo[]> {
+    const { myOnly = false, collection = "techform" } = params;
+    const res = await apiClient.get<{ success: boolean; data: CompanyInfo[] }>(
+      `/jobs/companies/?collection=${collection}&myOnly=${myOnly}`
+    );
+    return res.data || [];
+  },
+
+  async getCompanyDetails(companyId: string | number, collection: string = "techform"): Promise<CompanyInfo> {
+    const res = await apiClient.get<{ success: boolean; data: CompanyInfo }>(
+      `/jobs/companies/${companyId}?collection=${collection}`
+    );
+    return res.data;
+  },
+
+  // 9. Create Job (Recruiter)
   async createJob(jobData: Partial<Job>, workspace?: string): Promise<Job> {
     const endpoint = workspace
       ? `/jobs/workspaces/${workspace}/jobs?collection=techform`
@@ -145,54 +161,54 @@ export const jobsApi = {
     return res.data;
   },
 
-  // 9. Candidate Profile / CV
+  // 10. Candidate Profile / CV
   async getJobProfile(): Promise<JobProfile> {
     const res = await apiClient.get<{ success: boolean; data: any }>("/job-profiles/me");
     const raw = res.data || {};
     return {
-      id: raw.id,
+      id: raw.id?.toString(),
       professionalSummary: raw.professional_summary || raw.professionalSummary || "",
       currentPosition: raw.current_position || raw.currentPosition || "",
       desiredPosition: raw.desired_position || raw.desiredPosition || "",
       isAvailableForWork: raw.is_available_for_work ?? raw.isAvailableForWork ?? true,
       resumeUrl: raw.resume_url || raw.resumeUrl || null,
       experiences: (raw.experiences || []).map((e: any) => ({
-        id: e.id,
-        title: e.title,
-        company: e.company,
-        location: e.location,
-        startDate: e.start_date || e.startDate,
-        endDate: e.end_date || e.endDate,
-        isCurrent: e.is_current ?? e.isCurrent ?? false,
-        description: e.description,
+        id: e.id?.toString(),
+        title: e.position || e.title || "",
+        company: e.company_name || e.company || "",
+        location: e.location || "",
+        startDate: e.start_date || e.startDate || "",
+        endDate: e.end_date || e.endDate || null,
+        isCurrent: e.is_current_job ?? e.is_current ?? e.isCurrent ?? false,
+        description: e.description || "",
       })),
       educations: (raw.educations || []).map((e: any) => ({
-        id: e.id,
-        school: e.school,
-        degree: e.degree,
-        fieldOfStudy: e.field_of_study || e.fieldOfStudy,
-        startDate: e.start_date || e.startDate,
-        endDate: e.end_date || e.endDate,
-        grade: e.grade,
+        id: e.id?.toString(),
+        school: e.institution_name || e.school || "",
+        degree: e.degree || "",
+        fieldOfStudy: e.field_of_study || e.fieldOfStudy || "",
+        startDate: e.start_date || e.startDate || "",
+        endDate: e.end_date || e.endDate || null,
+        grade: e.grade || "",
       })),
       skills: (raw.skills || []).map((s: any) => ({
-        id: s.id,
+        id: s.id?.toString(),
         name: s.name,
-        level: s.level || "Intermediate",
+        level: s.level || (s.proficiency_level >= 4 ? "Expert" : s.proficiency_level >= 2 ? "Intermediate" : "Beginner"),
       })),
       certificates: (raw.certificates || []).map((c: any) => ({
-        id: c.id,
+        id: c.id?.toString(),
         name: c.name,
-        issuingOrganization: c.issuing_organization || c.issuingOrganization,
-        issueDate: c.issue_date || c.issueDate,
-        expirationDate: c.expiration_date || c.expirationDate,
-        credentialId: c.credential_id || c.credentialId,
-        credentialUrl: c.credential_url || c.credentialUrl,
+        issuingOrganization: c.issuing_organization || c.issuingOrganization || "",
+        issueDate: c.issue_date || c.issueDate || "",
+        expirationDate: c.expiration_date || c.expirationDate || null,
+        credentialId: c.credential_id || c.credentialId || "",
+        credentialUrl: c.credential_url || c.credentialUrl || "",
       })),
       languages: (raw.languages || []).map((l: any) => ({
-        id: l.id,
+        id: l.id?.toString(),
         name: l.name,
-        proficiency: l.proficiency || "Fluent",
+        proficiency: l.proficiency_level || l.proficiency || "Fluent",
       })),
     };
   },
@@ -212,19 +228,64 @@ export const jobsApi = {
     return res.data;
   },
 
-  // 10. Experience & Education items
-  async addExperience(exp: Omit<Experience, "id">): Promise<Experience> {
+  // 11. Experience items
+  async addExperience(exp: {
+    title: string;
+    company: string;
+    location?: string;
+    startDate: string;
+    endDate?: string | null;
+    isCurrent: boolean;
+    description?: string;
+  }): Promise<Experience> {
+    const payload: any = {
+      position: exp.title,
+      company_name: exp.company,
+      location: exp.location || "",
+      start_date: exp.startDate,
+      is_current_job: exp.isCurrent,
+      description: exp.description || "",
+      achievements: [],
+    };
+    if (!exp.isCurrent && exp.endDate) {
+      payload.end_date = exp.endDate;
+    }
     const res = await apiClient.post<{ success: boolean; data: any }>(
       "/job-profiles/me/experiences",
-      {
-        title: exp.title,
-        company: exp.company,
-        location: exp.location,
-        start_date: exp.startDate,
-        end_date: exp.endDate,
-        is_current: exp.isCurrent,
-        description: exp.description,
-      }
+      payload
+    );
+    return res.data;
+  },
+
+  async updateExperience(
+    id: string,
+    exp: {
+      title: string;
+      company: string;
+      location?: string;
+      startDate: string;
+      endDate?: string | null;
+      isCurrent: boolean;
+      description?: string;
+    }
+  ): Promise<Experience> {
+    const payload: any = {
+      position: exp.title,
+      company_name: exp.company,
+      location: exp.location || "",
+      start_date: exp.startDate,
+      is_current_job: exp.isCurrent,
+      description: exp.description || "",
+      achievements: [],
+    };
+    if (!exp.isCurrent && exp.endDate) {
+      payload.end_date = exp.endDate;
+    } else {
+      payload.end_date = null;
+    }
+    const res = await apiClient.put<{ success: boolean; data: any }>(
+      `/job-profiles/me/experiences/${id}`,
+      payload
     );
     return res.data;
   },
@@ -233,17 +294,64 @@ export const jobsApi = {
     await apiClient.delete(`/job-profiles/me/experiences/${id}`);
   },
 
-  async addEducation(edu: Omit<Education, "id">): Promise<Education> {
+  // 12. Education items
+  async addEducation(edu: {
+    school: string;
+    degree: string;
+    fieldOfStudy?: string;
+    startDate: string;
+    endDate?: string | null;
+    grade?: string;
+    description?: string;
+  }): Promise<Education> {
+    const payload: any = {
+      institution_name: edu.school,
+      degree: edu.degree,
+      field_of_study: edu.fieldOfStudy || "",
+      start_date: edu.startDate,
+      is_currently_studying: !edu.endDate,
+      grade: edu.grade || "",
+      description: edu.description || "",
+    };
+    if (edu.endDate) {
+      payload.end_date = edu.endDate;
+    }
     const res = await apiClient.post<{ success: boolean; data: any }>(
       "/job-profiles/me/educations",
-      {
-        school: edu.school,
-        degree: edu.degree,
-        field_of_study: edu.fieldOfStudy,
-        start_date: edu.startDate,
-        end_date: edu.endDate,
-        grade: edu.grade,
-      }
+      payload
+    );
+    return res.data;
+  },
+
+  async updateEducation(
+    id: string,
+    edu: {
+      school: string;
+      degree: string;
+      fieldOfStudy?: string;
+      startDate: string;
+      endDate?: string | null;
+      grade?: string;
+      description?: string;
+    }
+  ): Promise<Education> {
+    const payload: any = {
+      institution_name: edu.school,
+      degree: edu.degree,
+      field_of_study: edu.fieldOfStudy || "",
+      start_date: edu.startDate,
+      is_currently_studying: !edu.endDate,
+      grade: edu.grade || "",
+      description: edu.description || "",
+    };
+    if (edu.endDate) {
+      payload.end_date = edu.endDate;
+    } else {
+      payload.end_date = null;
+    }
+    const res = await apiClient.put<{ success: boolean; data: any }>(
+      `/job-profiles/me/educations/${id}`,
+      payload
     );
     return res.data;
   },
@@ -252,17 +360,26 @@ export const jobsApi = {
     await apiClient.delete(`/job-profiles/me/educations/${id}`);
   },
 
-  async addSkill(skill: { name: string; level?: string }): Promise<Skill[]> {
-    const res = await apiClient.post<{ success: boolean; data: any[] }>(
+  // 13. Skill items
+  async addSkill(skill: { name: string; category?: string; level?: string }): Promise<Skill[]> {
+    const profLevel = skill.level === "Expert" ? 5 : skill.level === "Beginner" ? 1 : 3;
+    const res = await apiClient.post<{ success: boolean; data: any }>(
       "/job-profiles/me/skills",
       {
-        skills: [{ name: skill.name, level: skill.level || "Intermediate" }],
+        skills: [
+          {
+            name: skill.name,
+            category: skill.category || "Technical",
+            proficiency_level: profLevel,
+          },
+        ],
       }
     );
-    return (res.data || []).map((s: any) => ({
-      id: s.id,
+    const list = Array.isArray(res.data) ? res.data : [];
+    return list.map((s: any) => ({
+      id: s.id?.toString(),
       name: s.name,
-      level: s.level,
+      level: s.level || (s.proficiency_level >= 4 ? "Expert" : s.proficiency_level >= 2 ? "Intermediate" : "Beginner"),
     }));
   },
 
@@ -270,7 +387,83 @@ export const jobsApi = {
     await apiClient.delete(`/job-profiles/me/skills/${id}`);
   },
 
-  // 11. Resume Upload
+  // 14. Certificates
+  async addCertificate(cert: {
+    name: string;
+    issuingOrganization: string;
+    issueDate: string;
+    expirationDate?: string | null;
+    credentialId?: string;
+    credentialUrl?: string;
+  }): Promise<Certificate> {
+    const payload: any = {
+      name: cert.name,
+      issuing_organization: cert.issuingOrganization,
+      issue_date: cert.issueDate,
+      credential_id: cert.credentialId || "",
+      credential_url: cert.credentialUrl || "",
+    };
+    if (cert.expirationDate) {
+      payload.expiration_date = cert.expirationDate;
+    }
+    const res = await apiClient.post<{ success: boolean; data: any }>(
+      "/job-profiles/me/certificates",
+      payload
+    );
+    return res.data;
+  },
+
+  async updateCertificate(
+    id: string,
+    cert: {
+      name: string;
+      issuingOrganization: string;
+      issueDate: string;
+      expirationDate?: string | null;
+      credentialId?: string;
+      credentialUrl?: string;
+    }
+  ): Promise<Certificate> {
+    const payload: any = {
+      name: cert.name,
+      issuing_organization: cert.issuingOrganization,
+      issue_date: cert.issueDate,
+      credential_id: cert.credentialId || "",
+      credential_url: cert.credentialUrl || "",
+    };
+    if (cert.expirationDate) {
+      payload.expiration_date = cert.expirationDate;
+    } else {
+      payload.expiration_date = null;
+    }
+    const res = await apiClient.put<{ success: boolean; data: any }>(
+      `/job-profiles/me/certificates/${id}`,
+      payload
+    );
+    return res.data;
+  },
+
+  async deleteCertificate(id: string): Promise<void> {
+    await apiClient.delete(`/job-profiles/me/certificates/${id}`);
+  },
+
+  // 15. Languages
+  async addLanguage(lang: { name: string; proficiency?: string }): Promise<Language> {
+    const res = await apiClient.post<{ success: boolean; data: any }>(
+      "/job-profiles/me/languages",
+      {
+        name: lang.name,
+        proficiency_level: lang.proficiency || "Fluent",
+      }
+    );
+    return res.data;
+  },
+
+  async deleteLanguage(id: string): Promise<void> {
+    await apiClient.delete(`/job-profiles/me/languages/${id}`);
+  },
+
+  // 16. Resume Upload & Delete
   async uploadResume(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
@@ -281,7 +474,8 @@ export const jobsApi = {
     });
 
     if (!res.ok) {
-      throw new Error("Failed to upload resume file");
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.detail || "Failed to upload resume file");
     }
 
     const data = await res.json();

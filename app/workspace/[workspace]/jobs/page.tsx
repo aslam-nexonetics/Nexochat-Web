@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Search,
   MapPin,
@@ -16,6 +17,7 @@ import {
   Sparkles,
   CheckCircle2,
   Loader2,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +30,9 @@ import { cn } from "@/lib/utils";
 
 export default function JobsBrowserPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const workspaceSlug = (params?.workspace as string) || "techform";
+  const urlJobId = searchParams.get("jobId");
 
   if (workspaceSlug.toLowerCase().includes("gig")) {
     return <GigJobsMarketplaceView />;
@@ -40,6 +44,7 @@ export default function JobsBrowserPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isApplyOpen, setIsApplyOpen] = React.useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
+  const [onlySaved, setOnlySaved] = React.useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -65,15 +70,29 @@ export default function JobsBrowserPage() {
       });
 
       setJobs(res.jobs);
-      if (res.jobs.length > 0 && !selectedJob) {
-        setSelectedJob(res.jobs[0]);
+
+      // Deep link to jobId if present in query param
+      if (res.jobs.length > 0) {
+        if (urlJobId) {
+          const match = res.jobs.find(
+            (j) => String(j.id) === String(urlJobId)
+          );
+          if (match) {
+            setSelectedJob(match);
+            setMobileDetailOpen(true);
+          } else {
+            setSelectedJob(res.jobs[0]);
+          }
+        } else if (!selectedJob) {
+          setSelectedJob(res.jobs[0]);
+        }
       }
     } catch {
       toast.error("Failed to load jobs");
     } finally {
       setIsLoading(false);
     }
-  }, [workspaceSlug, searchQuery, workplaceType, jobType, experienceLevel, selectedJob]);
+  }, [workspaceSlug, searchQuery, workplaceType, jobType, experienceLevel, selectedJob, urlJobId]);
 
   React.useEffect(() => {
     loadJobs();
@@ -108,6 +127,8 @@ export default function JobsBrowserPage() {
       return dateStr;
     }
   };
+
+  const displayedJobs = onlySaved ? jobs.filter((j) => j.is_bookmarked) : jobs;
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
@@ -166,7 +187,37 @@ export default function JobsBrowserPage() {
               <option value="Lead">Lead</option>
             </select>
 
-            {(workplaceType || jobType || experienceLevel || searchQuery) && (
+            {/* Saved Toggle */}
+            <Button
+              variant={onlySaved ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setOnlySaved(!onlySaved)}
+              className={cn(
+                "text-xs h-8 gap-1.5 border-slate-200 cursor-pointer px-2.5",
+                onlySaved && "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+              )}
+            >
+              <Bookmark className={cn("h-3.5 w-3.5", onlySaved && "fill-amber-500 text-amber-500")} />
+              <span>Saved</span>
+            </Button>
+
+            {/* Quick Link to My Applications */}
+            <Link href={`/workspace/${workspaceSlug}/applications`}>
+              <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-slate-200 cursor-pointer px-2.5">
+                <FileCheck className="h-3.5 w-3.5 text-indigo-600" />
+                <span>My Applications</span>
+              </Button>
+            </Link>
+
+            {/* Quick Link to Companies Directory */}
+            <Link href={`/workspace/${workspaceSlug}/company`}>
+              <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5 border-slate-200 cursor-pointer px-2.5">
+                <Building2 className="h-3.5 w-3.5 text-slate-600" />
+                <span>Companies</span>
+              </Button>
+            </Link>
+
+            {(workplaceType || jobType || experienceLevel || searchQuery || onlySaved) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -175,8 +226,9 @@ export default function JobsBrowserPage() {
                   setWorkplaceType("");
                   setJobType("");
                   setExperienceLevel("");
+                  setOnlySaved(false);
                 }}
-                className="text-xs h-8 text-rose-600 hover:text-rose-700 px-2"
+                className="text-xs h-8 text-rose-600 hover:text-rose-700 px-2 cursor-pointer"
               >
                 Reset
               </Button>
@@ -196,7 +248,7 @@ export default function JobsBrowserPage() {
         >
           <div className="p-3 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 bg-slate-50/50">
             <span className="font-semibold text-slate-700">
-              {jobs.length} Positions Available
+              {displayedJobs.length} {onlySaved ? "Saved Positions" : "Positions Available"}
             </span>
             <span className="text-[11px] text-slate-400">Sorted by Recent</span>
           </div>
@@ -206,19 +258,21 @@ export default function JobsBrowserPage() {
               <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mb-2" />
               <p className="text-xs text-slate-500">Loading open positions...</p>
             </div>
-          ) : jobs.length === 0 ? (
+          ) : displayedJobs.length === 0 ? (
             <div className="p-12 text-center">
               <Briefcase className="h-8 w-8 text-slate-300 mx-auto mb-2" />
               <p className="text-xs font-semibold text-slate-700">
-                No matching jobs found
+                {onlySaved ? "No saved jobs" : "No matching jobs found"}
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                Try adjusting your search criteria or resetting filters.
+                {onlySaved
+                  ? "You haven't bookmarked any job vacancies yet."
+                  : "Try adjusting your search criteria or resetting filters."}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {jobs.map((job) => {
+              {displayedJobs.map((job) => {
                 const isSelected = selectedJob?.id === job.id;
                 const companyInitial = job.company?.charAt(0).toUpperCase() || "C";
 
@@ -238,16 +292,25 @@ export default function JobsBrowserPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-3 truncate">
-                        <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200">
+                        <Link
+                          href={`/workspace/${workspaceSlug}/company?id=${job.companyInfo?.id || ""}&name=${encodeURIComponent(job.company)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-10 w-10 shrink-0 rounded-xl bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200 transition-colors"
+                          title="View Company"
+                        >
                           {companyInitial}
-                        </div>
+                        </Link>
                         <div className="truncate">
                           <h3 className="font-bold text-xs text-slate-900 truncate">
                             {job.title}
                           </h3>
-                          <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                          <Link
+                            href={`/workspace/${workspaceSlug}/company?id=${job.companyInfo?.id || ""}&name=${encodeURIComponent(job.company)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-slate-500 hover:text-indigo-600 font-medium truncate mt-0.5 inline-block transition-colors"
+                          >
                             {job.company}
-                          </div>
+                          </Link>
                           <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-1">
                             <MapPin className="h-3 w-3 shrink-0" />
                             <span className="truncate">{job.location}</span>
@@ -320,17 +383,25 @@ export default function JobsBrowserPage() {
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <div className="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xl border border-indigo-100 shadow-xs">
+                    <Link
+                      href={`/workspace/${workspaceSlug}/company?id=${selectedJob.companyInfo?.id || ""}&name=${encodeURIComponent(selectedJob.company)}`}
+                      className="h-14 w-14 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xl border border-indigo-100 shadow-xs transition-colors shrink-0"
+                      title="View Company Profile"
+                    >
                       {selectedJob.company?.charAt(0).toUpperCase() || "C"}
-                    </div>
+                    </Link>
                     <div>
                       <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                         {selectedJob.title}
                       </h1>
                       <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-600">
-                        <span className="font-semibold text-slate-900">
-                          {selectedJob.company}
-                        </span>
+                        <Link
+                          href={`/workspace/${workspaceSlug}/company?id=${selectedJob.companyInfo?.id || ""}&name=${encodeURIComponent(selectedJob.company)}`}
+                          className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors inline-flex items-center gap-1"
+                        >
+                          <span>{selectedJob.company}</span>
+                          <ExternalLink className="h-3 w-3 text-slate-400" />
+                        </Link>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5 text-slate-400" />
@@ -448,11 +519,27 @@ export default function JobsBrowserPage() {
               {/* About Company Card */}
               {selectedJob.companyInfo && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Building2 className="h-4 w-4 text-indigo-600" />
-                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                      About {selectedJob.companyInfo.name || selectedJob.company}
-                    </h2>
+                  <div className="flex items-center justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-indigo-600" />
+                      <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                        About {selectedJob.companyInfo.name || selectedJob.company}
+                      </h2>
+                    </div>
+
+                    <Link
+                      href={`/workspace/${workspaceSlug}/company?id=${selectedJob.companyInfo.id || ""}&name=${encodeURIComponent(selectedJob.companyInfo.name || selectedJob.company)}`}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-8 gap-1.5 border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 font-semibold cursor-pointer"
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        <span>View Company Profile</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </Link>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     {selectedJob.companyInfo.description ||
