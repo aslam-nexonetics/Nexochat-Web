@@ -339,7 +339,7 @@ function WorkspaceChatContent() {
 
   const { user } = useAuthStore();
   const { activeCollection, collections, selectCollectionByName } = useWorkspaceStore();
-  const { startCall } = useCallStore();
+  const { initiateCall } = useCallStore();
 
   const [rooms, setRooms] = React.useState<ChatRoom[]>([]);
   const [activeRoom, setActiveRoom] = React.useState<ChatRoom | null>(null);
@@ -1546,16 +1546,23 @@ function WorkspaceChatContent() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              startCall({
-                                channelName: `call_${collectionName}_${activeRoom.id}`,
+                              const targetUserId = otherUserIdParam
+                                ? parseInt(otherUserIdParam, 10)
+                                : (activeRoom.otherUserId ||
+                                   activeRoom.otherUser?.userId ||
+                                   activeRoom.otherUser?.id ||
+                                   activeRoom.id);
+                              initiateCall({
+                                receiverId: targetUserId,
+                                receiverName: activeTitle,
+                                receiverAvatar: activeRoom.avatarUrl,
+                                receiverRole: activeRole,
                                 callType: "audio",
                                 collectionName,
-                                calleeId: activeRoom.id,
-                                calleeName: activeTitle,
+                                collectionId: currentCollection?.id?.toString(),
                               });
-                              toast.info(`Starting voice call with ${activeTitle}...`);
                             }}
-                            className="h-9 px-3 text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            className="h-9 px-3 text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs font-medium"
                           >
                             <Phone className="h-3.5 w-3.5 text-slate-600" />
                             <span className="hidden sm:inline">Voice Call</span>
@@ -1565,16 +1572,23 @@ function WorkspaceChatContent() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              startCall({
-                                channelName: `call_${collectionName}_${activeRoom.id}`,
+                              const targetUserId = otherUserIdParam
+                                ? parseInt(otherUserIdParam, 10)
+                                : (activeRoom.otherUserId ||
+                                   activeRoom.otherUser?.userId ||
+                                   activeRoom.otherUser?.id ||
+                                   activeRoom.id);
+                              initiateCall({
+                                receiverId: targetUserId,
+                                receiverName: activeTitle,
+                                receiverAvatar: activeRoom.avatarUrl,
+                                receiverRole: activeRole,
                                 callType: "video",
                                 collectionName,
-                                calleeId: activeRoom.id,
-                                calleeName: activeTitle,
+                                collectionId: currentCollection?.id?.toString(),
                               });
-                              toast.info(`Starting video call with ${activeTitle}...`);
                             }}
-                            className="h-9 px-3 text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            className="h-9 px-3 text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs font-medium"
                           >
                             <Video className="h-3.5 w-3.5 text-slate-600" />
                             <span className="hidden sm:inline">Video Call</span>
