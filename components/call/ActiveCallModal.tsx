@@ -57,9 +57,9 @@ export function ActiveCallModal() {
         agoraRtcService.attachRemoteVideo(remoteVideoRef.current);
       }
     }
-  }, [status, callType, isVideoOff, hasRemoteUser, remoteHasVideo]);
+  }, [status, callType, isVideoOff, hasRemoteUser, remoteHasVideo, isMinimized]);
 
-  if ((status !== "calling" && status !== "connected") || isMinimized) {
+  if (status !== "calling" && status !== "connected") {
     return null;
   }
 
@@ -92,7 +92,11 @@ export function ActiveCallModal() {
       .toUpperCase() || "NX";
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 p-2 sm:p-6">
+    <div
+      className={`fixed inset-0 z-[95] items-center justify-center bg-slate-950/85 backdrop-blur-md p-2 sm:p-6 ${
+        isMinimized ? "hidden" : "flex animate-in fade-in duration-200"
+      }`}
+    >
       <div className="relative w-full max-w-4xl h-[90vh] max-h-[720px] rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl flex flex-col overflow-hidden text-white">
         {/* Top Floating Bar */}
         <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-slate-950/80 via-slate-950/40 to-transparent">
@@ -158,15 +162,17 @@ export function ActiveCallModal() {
 
         {/* Main Video / Audio Canvas */}
         <div className="relative flex-1 w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden">
-          {callType === "video" && remoteHasVideo ? (
-            /* Remote Video Track View */
-            <div
-              ref={remoteVideoRef}
-              className="w-full h-full object-cover"
-              style={{ minHeight: "100%", minWidth: "100%" }}
-            />
-          ) : (
-            /* Audio Call / Remote Camera Off Avatar View */
+          {/* Remote Video Track View - permanently mounted to preserve WebRTC stream */}
+          <div
+            ref={remoteVideoRef}
+            className={`w-full h-full object-cover ${
+              callType === "video" && remoteHasVideo ? "block" : "hidden"
+            }`}
+            style={{ minHeight: "100%", minWidth: "100%" }}
+          />
+
+          {/* Audio Call / Remote Camera Off Avatar View */}
+          {(!remoteHasVideo || callType !== "video") && (
             <div className="flex flex-col items-center justify-center p-6 text-center space-y-4">
               <div className="relative">
                 {status === "connected" && (
@@ -221,17 +227,18 @@ export function ActiveCallModal() {
                 isVideoOff ? "flex items-center justify-center" : ""
               }`}
             >
-              {isVideoOff ? (
+              {isVideoOff && (
                 <div className="flex flex-col items-center text-slate-400 gap-1">
                   <VideoOff className="h-6 w-6" />
                   <span className="text-[10px]">Camera Off</span>
                 </div>
-              ) : (
-                <div
-                  ref={localVideoRef}
-                  className="w-full h-full object-cover -scale-x-100"
-                />
               )}
+              <div
+                ref={localVideoRef}
+                className={`w-full h-full object-cover -scale-x-100 ${
+                  isVideoOff ? "hidden" : "block"
+                }`}
+              />
               <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-semibold text-white">
                 You
               </div>

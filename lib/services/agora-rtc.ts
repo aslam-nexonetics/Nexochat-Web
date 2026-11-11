@@ -166,7 +166,14 @@ class AgoraRtcService {
           options.onRemoteVideoTrack(this.remoteVideoTrack);
         }
         if (this.remoteVideoElement) {
-          this.remoteVideoTrack.play(this.remoteVideoElement);
+          try {
+            if (this.remoteVideoTrack.isPlaying) {
+              this.remoteVideoTrack.stop();
+            }
+            this.remoteVideoTrack.play(this.remoteVideoElement, { fit: "cover" });
+          } catch (err) {
+            console.warn("[Agora RTC] Error playing remote video track in user-published:", err);
+          }
         }
       }
 
@@ -186,6 +193,13 @@ class AgoraRtcService {
     // Handle remote user unpublishing tracks
     this.client.on("user-unpublished", (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video") => {
       if (mediaType === "video") {
+        if (this.remoteVideoTrack) {
+          try {
+            this.remoteVideoTrack.stop();
+          } catch {
+            // ignore
+          }
+        }
         this.remoteVideoTrack = null;
         if (options.onRemoteVideoTrack) {
           options.onRemoteVideoTrack(null);
@@ -266,9 +280,26 @@ class AgoraRtcService {
    * Bind local video stream to an HTML container element
    */
   attachLocalVideo(element: HTMLElement | null) {
+    if (!element) {
+      this.localVideoElement = null;
+      return;
+    }
+
     this.localVideoElement = element;
-    if (this.localVideoTrack && element) {
-      this.localVideoTrack.play(element);
+
+    if (this.localVideoTrack) {
+      try {
+        const existingVideo = element.querySelector("video");
+        if (this.localVideoTrack.isPlaying && existingVideo) {
+          return;
+        }
+        if (this.localVideoTrack.isPlaying) {
+          this.localVideoTrack.stop();
+        }
+        this.localVideoTrack.play(element, { fit: "cover" });
+      } catch (err) {
+        console.warn("[Agora RTC] Error playing local video track:", err);
+      }
     }
   }
 
@@ -276,9 +307,26 @@ class AgoraRtcService {
    * Bind remote video stream to an HTML container element
    */
   attachRemoteVideo(element: HTMLElement | null) {
+    if (!element) {
+      this.remoteVideoElement = null;
+      return;
+    }
+
     this.remoteVideoElement = element;
-    if (this.remoteVideoTrack && element) {
-      this.remoteVideoTrack.play(element);
+
+    if (this.remoteVideoTrack) {
+      try {
+        const existingVideo = element.querySelector("video");
+        if (this.remoteVideoTrack.isPlaying && existingVideo) {
+          return;
+        }
+        if (this.remoteVideoTrack.isPlaying) {
+          this.remoteVideoTrack.stop();
+        }
+        this.remoteVideoTrack.play(element, { fit: "cover" });
+      } catch (err) {
+        console.warn("[Agora RTC] Error playing remote video track:", err);
+      }
     }
   }
 
@@ -315,6 +363,15 @@ class AgoraRtcService {
         this.localVideoTrack.stop();
         this.localVideoTrack.close();
         this.localVideoTrack = null;
+      }
+
+      if (this.remoteVideoTrack) {
+        try {
+          this.remoteVideoTrack.stop();
+        } catch {
+          // ignore
+        }
+        this.remoteVideoTrack = null;
       }
 
       if (this.client) {
