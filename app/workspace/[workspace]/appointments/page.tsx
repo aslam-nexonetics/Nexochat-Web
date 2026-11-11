@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useCallStore } from "@/lib/store/call-store";
 import { gigApi } from "@/lib/api/gig";
 import { GigAppointment, GigPointsWallet, GigProvider } from "@/lib/types/gig";
 import { toast } from "sonner";
@@ -549,6 +550,38 @@ export default function WorkspaceGigAppointmentsPage() {
     router.push(`/workspace/${workspaceSlug}/chat?${query.toString()}`);
   };
 
+  const handleDirectCall = (appt: GigAppointment, callType: "audio" | "video" = "audio") => {
+    if (!user) {
+      toast.error("Please log in to make a call.");
+      return;
+    }
+
+    const otherUserId = role === "client" ? appt.providerUserId : appt.clientId;
+    const otherUserName =
+      (role === "client" ? appt.providerName : appt.clientName) ||
+      (role === "client" ? "Service Provider" : "Client");
+    const specialization =
+      appt.providerSpecialization || appt.category || appt.serviceTitle;
+
+    if (!otherUserId) {
+      toast.error("Participant details not found for this appointment.");
+      return;
+    }
+
+    if (user.id === otherUserId) {
+      toast.error("You cannot call yourself.");
+      return;
+    }
+
+    useCallStore.getState().initiateCall({
+      receiverId: otherUserId,
+      receiverName: otherUserName,
+      receiverRole: specialization,
+      callType,
+      collectionName: "gig",
+    });
+  };
+
   const totalPoints = pointsWallet?.totalPoints ?? 120;
   const currentTier = pointsWallet?.currentTier ?? "Bronze";
   const nextTier = pointsWallet?.nextTier ?? "Silver";
@@ -992,6 +1025,18 @@ export default function WorkspaceGigAppointmentsPage() {
                   >
                     <MessageSquare className="h-3.5 w-3.5 text-indigo-600" />
                     <span>Direct Chat</span>
+                  </Button>
+
+                  {/* Direct Voice Call Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDirectCall(appt, "audio")}
+                    className="h-8.5 px-2.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold gap-1.5 shadow-2xs"
+                    title="Start Voice Call"
+                  >
+                    <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                    <span className="hidden sm:inline">Call</span>
                   </Button>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import type {
   IRemoteVideoTrack,
   IAgoraRTCRemoteUser,
 } from "agora-rtc-sdk-ng";
+import { callApi } from "@/lib/api/call";
 
 export interface AgoraRtcJoinOptions {
   appId: string;
@@ -17,6 +18,8 @@ export interface AgoraRtcJoinOptions {
   onRemoteUserLeft?: (uid: number) => void;
   onRemoteVideoTrack?: (track: IRemoteVideoTrack | null) => void;
   onRemoteAudioTrack?: (track: IRemoteAudioTrack | null) => void;
+  onConnectionStateChange?: (state: string) => void;
+  onNetworkQuality?: (quality: number) => void;
 }
 
 class AgoraRtcService {
@@ -28,6 +31,16 @@ class AgoraRtcService {
   private localVideoElement: HTMLElement | null = null;
   private remoteVideoElement: HTMLElement | null = null;
   private isJoined = false;
+  private currentChannelName = "";
+  private currentUid = 0;
+
+  constructor() {
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeunload", () => {
+        this.leave().catch(() => {});
+      });
+    }
+  }
 
   public getLocalAudioTrack() {
     return this.localAudioTrack;
@@ -50,6 +63,50 @@ class AgoraRtcService {
   }
 
   /**
+   * Enumerate available microphone devices
+   */
+  async getMicrophones(): Promise<MediaDeviceInfo[]> {
+    if (typeof window === "undefined") return [];
+    try {
+      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+      return await AgoraRTC.getMicrophones();
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Enumerate available camera devices
+   */
+  async getCameras(): Promise<MediaDeviceInfo[]> {
+    if (typeof window === "undefined") return [];
+    try {
+      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+      return await AgoraRTC.getCameras();
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Switch active microphone device
+   */
+  async setMicrophone(deviceId: string): Promise<void> {
+    if (this.localAudioTrack) {
+      await this.localAudioTrack.setDevice(deviceId);
+    }
+  }
+
+  /**
+   * Switch active camera device
+   */
+  async setCamera(deviceId: string): Promise<void> {
+    if (this.localVideoTrack) {
+      await this.localVideoTrack.setDevice(deviceId);
+    }
+  }
+
+  /**
    * Initialize Agora client and join the RTC channel
    */
   async join(options: AgoraRtcJoinOptions): Promise<void> {
@@ -58,10 +115,45 @@ class AgoraRtcService {
     // Leave any existing session first
     await this.leave();
 
+    this.currentChannelName = options.channelName;
+    this.currentUid = options.uid;
+
     const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
     AgoraRTC.setLogLevel(1); // Set to WARNING in production
 
     this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+    // Handle connection state changes
+    this.client.on("connection-state-change", (curState) => {
+      if (options.onConnectionStateChange) {
+        options.onConnectionStateChange(curState);
+      }
+    });
+
+    // Handle network quality stats
+    this.client.on("network-quality", (stats) => {
+      if (options.onNetworkQuality) {
+        options.onNetworkQuality(stats.downlinkNetworkQuality);
+      }
+    });
+
+    // Handle token privilege expiration (renew proactively)
+    this.client.on("token-privilege-will-expire", async () => {
+      console.warn("[Agora RTC] Token privilege will expire soon, renewing...");
+      try {
+        const tokenRes = await callApi.generateRtcToken(
+          this.currentChannelName,
+          this.currentUid,
+          "publisher"
+        );
+        if (this.client && tokenRes.token) {
+          await this.client.renewToken(tokenRes.token);
+          console.log("[Agora RTC] Token renewed successfully");
+        }
+      } catch (err) {
+        console.error("[Agora RTC] Failed to renew token:", err);
+      }
+    });
 
     // Handle remote user publishing tracks
     this.client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video") => {
@@ -127,7 +219,7 @@ class AgoraRtcService {
     );
     this.isJoined = true;
 
-    // Create local tracks
+    // Create local tracks with production-grade AEC, ANS, AGC
     const tracksToPublish: (IMicrophoneAudioTrack | ICameraVideoTrack)[] = [];
 
     try {
@@ -135,6 +227,7 @@ class AgoraRtcService {
         encoderConfig: "speech_standard",
         AEC: true,
         ANS: true,
+        AGC: true,
       });
       tracksToPublish.push(this.localAudioTrack);
     } catch (err) {
