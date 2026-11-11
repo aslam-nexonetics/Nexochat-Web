@@ -200,13 +200,14 @@ class AgoraRtcService {
     });
 
     // Handle remote user leaving
-    this.client.on("user-left", (user: IAgoraRTCRemoteUser) => {
+    this.client.on("user-left", (user: IAgoraRTCRemoteUser, reason: string) => {
+      console.log(`[Agora RTC] Remote user ${user.uid} left channel. Reason: ${reason}`);
       this.remoteVideoTrack = null;
       this.remoteAudioTrack = null;
       if (options.onRemoteVideoTrack) options.onRemoteVideoTrack(null);
       if (options.onRemoteAudioTrack) options.onRemoteAudioTrack(null);
-      if (options.onRemoteUserLeft && typeof user.uid === "number") {
-        options.onRemoteUserLeft(user.uid);
+      if (options.onRemoteUserLeft) {
+        options.onRemoteUserLeft(Number(user.uid));
       }
     });
 
@@ -219,7 +220,7 @@ class AgoraRtcService {
     );
     this.isJoined = true;
 
-    // Create local tracks with production-grade AEC, ANS, AGC
+    // Create local tracks with production-grade AEC, ANS, AGC and fallback
     const tracksToPublish: (IMicrophoneAudioTrack | ICameraVideoTrack)[] = [];
 
     try {
@@ -230,8 +231,14 @@ class AgoraRtcService {
         AGC: true,
       });
       tracksToPublish.push(this.localAudioTrack);
-    } catch (err) {
-      console.warn("Failed to acquire microphone track:", err);
+    } catch (advancedErr) {
+      console.warn("Advanced microphone constraints failed, trying basic audio track:", advancedErr);
+      try {
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        tracksToPublish.push(this.localAudioTrack);
+      } catch (basicErr: any) {
+        console.warn("No microphone hardware detected on this device (listening only):", basicErr?.message || basicErr);
+      }
     }
 
     if (options.callType === "video") {

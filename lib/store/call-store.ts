@@ -53,6 +53,26 @@ export interface CallStoreState {
 
 let callTimerInterval: NodeJS.Timeout | null = null;
 let noAnswerTimeout: NodeJS.Timeout | null = null;
+let activeCallPollInterval: NodeJS.Timeout | null = null;
+
+const startCallStatusPolling = (channelName: string) => {
+  if (activeCallPollInterval) clearInterval(activeCallPollInterval);
+  activeCallPollInterval = setInterval(async () => {
+    const state = useCallStore.getState();
+    if ((state.status === "connected" || state.status === "calling") && channelName) {
+      try {
+        const info = await callApi.getCallInfo(channelName);
+        if (info && (info.status === "ended" || info.ended_at)) {
+          console.log("[CallStore] Backend confirmed call has ended");
+          toast.info("Call ended by the other participant");
+          useCallStore.getState().endActiveCall();
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, 3500);
+};
 
 const DEFAULT_AGORA_APP_ID =
   process.env.NEXT_PUBLIC_AGORA_APP_ID || "6e2f5d3409d7453589014015a008273e";
@@ -192,10 +212,34 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         uid: currentNumericUid,
         callType: params.callType,
         onRemoteUserJoined: (remoteUid) => {
-          set({ hasRemoteUser: true, remoteUid });
+          console.log(`[CallStore] Remote user ${remoteUid} joined RTC channel`);
+          if (noAnswerTimeout) clearTimeout(noAnswerTimeout);
+          callSoundService.stopAll();
+          callSoundService.playCallConnected();
+
+          set({
+            status: "connected",
+            hasRemoteUser: true,
+            remoteUid,
+          });
+
+          startCallStatusPolling(channelName);
+
+          if (!callTimerInterval) {
+            callTimerInterval = setInterval(() => {
+              set((s) => ({ callDuration: s.callDuration + 1 }));
+            }, 1000);
+          }
         },
-        onRemoteUserLeft: () => {
-          set({ hasRemoteUser: false, remoteUid: null, remoteHasVideo: false });
+        onRemoteUserLeft: (leftUid) => {
+          console.log(`[CallStore] Remote user ${leftUid} left RTC channel`);
+          const currentStatus = get().status;
+          if (currentStatus === "connected" || currentStatus === "calling") {
+            toast.info("The other participant has left the call");
+            get().endActiveCall();
+          } else {
+            set({ hasRemoteUser: false, remoteUid: null, remoteHasVideo: false });
+          }
         },
         onRemoteVideoTrack: (track) => {
           set({ remoteHasVideo: !!track });
@@ -322,15 +366,25 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         uid: currentNumericUid,
         callType: state.callType,
         onRemoteUserJoined: (uid) => {
+          console.log(`[CallStore] Remote user ${uid} joined RTC channel`);
           set({ hasRemoteUser: true, remoteUid: uid });
         },
-        onRemoteUserLeft: () => {
-          set({ hasRemoteUser: false, remoteUid: null, remoteHasVideo: false });
+        onRemoteUserLeft: (leftUid) => {
+          console.log(`[CallStore] Remote user ${leftUid} left RTC channel`);
+          const currentStatus = get().status;
+          if (currentStatus === "connected" || currentStatus === "calling") {
+            toast.info("The other participant has left the call");
+            get().endActiveCall();
+          } else {
+            set({ hasRemoteUser: false, remoteUid: null, remoteHasVideo: false });
+          }
         },
         onRemoteVideoTrack: (track) => {
           set({ remoteHasVideo: !!track });
         },
       });
+
+      startCallStatusPolling(state.channelName);
 
       // 5. Start call timer
       if (callTimerInterval) clearInterval(callTimerInterval);
@@ -384,6 +438,10 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     const receiverId = state.otherUserId;
 
     if (noAnswerTimeout) clearTimeout(noAnswerTimeout);
+    if (activeCallPollInterval) {
+      clearInterval(activeCallPollInterval);
+      activeCallPollInterval = null;
+    }
     callSoundService.stopAll();
 
     if (receiverId && callId) {
@@ -416,6 +474,10 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     if (callTimerInterval) {
       clearInterval(callTimerInterval);
       callTimerInterval = null;
+    }
+    if (activeCallPollInterval) {
+      clearInterval(activeCallPollInterval);
+      activeCallPollInterval = null;
     }
 
     callSoundService.stopAll();

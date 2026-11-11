@@ -100,8 +100,14 @@ class AgoraRtmService {
       client.addEventListener("linkState", (event: any) => {
         if (event.currentState === "CONNECTED") {
           this.isLoggedIn = true;
+          console.log("[Agora RTM] Connection link state: CONNECTED");
         } else if (event.currentState === "DISCONNECTED") {
           this.isLoggedIn = false;
+          if (event.reason === "SAME_UID_LOGIN" || event.reason === "KICKED_OUT_BY_SERVER") {
+            console.warn("[Agora RTM] Session disconnected: logged in on another client/device.");
+          } else {
+            console.warn(`[Agora RTM] Session disconnected: ${event.reason || "network dropped"}`);
+          }
         }
       });
 
@@ -191,6 +197,17 @@ class AgoraRtmService {
    * Send a peer-to-peer signaling message to another user
    */
   async sendPeerMessage(receiverId: number, message: Partial<RtmCallMessage>): Promise<boolean> {
+    if (!this.rtmClient || !this.isLoggedIn) {
+      if (this.currentUserId) {
+        console.log("[Agora RTM] Attempting quick session restore before sending message...");
+        try {
+          await this.initialize(Number(this.currentUserId));
+        } catch {
+          // ignore
+        }
+      }
+    }
+
     if (!this.rtmClient || !this.isLoggedIn) {
       console.warn("[Agora RTM] Cannot send peer message: client not logged in");
       return false;

@@ -10,6 +10,7 @@ import {
   VideoOff,
   PhoneOff,
   Minus,
+  PictureInPicture2,
   User,
   ShieldCheck,
 } from "lucide-react";
@@ -63,6 +64,25 @@ export function ActiveCallModal() {
   }
 
   const isCalling = status === "calling";
+  const hasLocalMic = !!agoraRtcService.getLocalAudioTrack();
+
+  const handlePictureInPicture = async () => {
+    if (typeof document === "undefined") return;
+    try {
+      const videoEl = remoteVideoRef.current?.querySelector("video") ||
+                      localVideoRef.current?.querySelector("video");
+      if (videoEl && "requestPictureInPicture" in videoEl) {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else {
+          await videoEl.requestPictureInPicture();
+        }
+      }
+    } catch (e) {
+      console.warn("Picture-in-Picture error:", e);
+    }
+  };
+
   const initials =
     otherUserName
       .split(" ")
@@ -110,6 +130,19 @@ export function ActiveCallModal() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Picture-in-Picture button (video calls) */}
+            {callType === "video" && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handlePictureInPicture}
+                className="h-9 w-9 rounded-full bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 cursor-pointer shadow-sm"
+                title="Pop out into Picture-in-Picture window"
+              >
+                <PictureInPicture2 className="h-4 w-4" />
+              </Button>
+            )}
+
             {/* Minimize button */}
             <Button
               variant="outline"
@@ -212,15 +245,23 @@ export function ActiveCallModal() {
           <Button
             variant="outline"
             size="icon"
-            onClick={toggleMute}
-            className={`h-12 w-12 rounded-full cursor-pointer transition-colors shadow-md ${
-              isMuted
-                ? "bg-amber-500/20 border-amber-500/40 text-amber-400 hover:bg-amber-500/30"
-                : "bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700"
+            onClick={hasLocalMic ? toggleMute : undefined}
+            className={`h-12 w-12 rounded-full transition-colors shadow-md ${
+              !hasLocalMic
+                ? "bg-slate-800/40 border-slate-700/60 text-slate-500 cursor-not-allowed"
+                : isMuted
+                ? "bg-amber-500/20 border-amber-500/40 text-amber-400 hover:bg-amber-500/30 cursor-pointer"
+                : "bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700 cursor-pointer"
             }`}
-            title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
+            title={
+              !hasLocalMic
+                ? "No microphone detected on this device (listening only)"
+                : isMuted
+                ? "Unmute Microphone"
+                : "Mute Microphone"
+            }
           >
-            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            {!hasLocalMic || isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </Button>
 
           {/* Toggle Camera Button (Video Calls only) */}
