@@ -119,7 +119,7 @@ class AgoraRtcService {
     this.currentUid = options.uid;
 
     const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-    AgoraRTC.setLogLevel(1); // Set to WARNING in production
+    AgoraRTC.setLogLevel(2); // Set to WARNING in production
 
     this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
@@ -237,37 +237,64 @@ class AgoraRtcService {
     // Create local tracks with production-grade AEC, ANS, AGC and fallback
     const tracksToPublish: (IMicrophoneAudioTrack | ICameraVideoTrack)[] = [];
 
+    // 1. Detect microphone hardware availability before requesting track to avoid DEVICE_NOT_FOUND errors
     try {
-      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig: "speech_standard",
-        AEC: true,
-        ANS: true,
-        AGC: true,
-      });
-      tracksToPublish.push(this.localAudioTrack);
-    } catch (advancedErr) {
-      console.warn("Advanced microphone constraints failed, trying basic audio track:", advancedErr);
-      try {
-        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        tracksToPublish.push(this.localAudioTrack);
-      } catch (basicErr: any) {
-        console.warn("No microphone hardware detected on this device (listening only):", basicErr?.message || basicErr);
+      const mics = await AgoraRTC.getMicrophones().catch(() => []);
+      if (mics && mics.length > 0) {
+        try {
+          this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+            encoderConfig: "speech_standard",
+            AEC: true,
+            ANS: true,
+            AGC: true,
+          });
+          tracksToPublish.push(this.localAudioTrack);
+        } catch (advancedErr: any) {
+          const isNotFound =
+            advancedErr?.code === "DEVICE_NOT_FOUND" ||
+            advancedErr?.name === "NotFoundError" ||
+            advancedErr?.message?.includes("not found");
+          if (!isNotFound) {
+            try {
+              this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+              tracksToPublish.push(this.localAudioTrack);
+            } catch (basicErr: any) {
+              console.warn("[Agora RTC] Microphone acquisition error:", basicErr?.message || basicErr);
+            }
+          } else {
+            console.warn("[Agora RTC] Microphone device was not found on this system.");
+          }
+        }
+      } else {
+        console.log("[Agora RTC] No microphone hardware connected (listening-only mode).");
       }
+    } catch {
+      // ignore
     }
 
+    // 2. Detect camera hardware availability before requesting track
     if (options.callType === "video") {
       try {
-        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
-          encoderConfig: "720p_1",
-          optimizationMode: "detail",
-        });
-        tracksToPublish.push(this.localVideoTrack);
+        const cams = await AgoraRTC.getCameras().catch(() => []);
+        if (cams && cams.length > 0) {
+          try {
+            this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+              encoderConfig: "720p_1",
+              optimizationMode: "detail",
+            });
+            tracksToPublish.push(this.localVideoTrack);
 
-        if (this.localVideoElement) {
-          this.localVideoTrack.play(this.localVideoElement);
+            if (this.localVideoElement) {
+              this.localVideoTrack.play(this.localVideoElement, { fit: "cover" });
+            }
+          } catch (err: any) {
+            console.warn("[Agora RTC] Camera acquisition error:", err?.message || err);
+          }
+        } else {
+          console.log("[Agora RTC] No camera hardware connected on this system.");
         }
-      } catch (err) {
-        console.warn("Failed to acquire camera track:", err);
+      } catch {
+        // ignore
       }
     }
 

@@ -121,7 +121,8 @@ export const callApi = {
   async endCall(callId: number): Promise<void> {
     try {
       await apiClient.post(`/agora-router/call/${callId}/end`);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.status === 404) return;
       console.warn("Call end notification returned an error:", e);
     }
   },
@@ -132,7 +133,8 @@ export const callApi = {
   async cancelCall(callId: number): Promise<void> {
     try {
       await apiClient.post(`/agora-router/call/${callId}/cancel`);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.status === 404) return;
       console.warn("Call cancel notification returned an error:", e);
     }
   },
@@ -152,7 +154,8 @@ export const callApi = {
   async leaveCall(channelName: string): Promise<void> {
     try {
       await apiClient.post(`/agora-router/call/leave?channel_name=${encodeURIComponent(channelName)}`);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.status === 404) return;
       console.warn("Call leave notification returned an error:", e);
     }
   },

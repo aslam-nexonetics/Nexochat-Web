@@ -57,13 +57,11 @@ let activeCallPollInterval: NodeJS.Timeout | null = null;
 
 const startCallStatusPolling = (channelName: string) => {
   if (activeCallPollInterval) clearInterval(activeCallPollInterval);
-  let notFoundStreak = 0;
   activeCallPollInterval = setInterval(async () => {
     const state = useCallStore.getState();
     if ((state.status === "connected" || state.status === "calling") && channelName) {
       try {
         const info = await callApi.getCallInfo(channelName);
-        notFoundStreak = 0;
         if (info && (info.status === "ended" || info.ended_at)) {
           console.log("[CallStore] Backend confirmed call has ended");
           toast.info("Call ended by the other participant");
@@ -71,24 +69,20 @@ const startCallStatusPolling = (channelName: string) => {
         }
       } catch (err: any) {
         if (err?.status === 404) {
-          notFoundStreak++;
-          // If 404 occurs twice, verify against getActiveCalls to avoid spamming 404
-          if (notFoundStreak >= 2) {
-            try {
-              const activeCalls = await callApi.getActiveCalls();
-              const isStillActive = activeCalls.some(
-                (c) =>
-                  c.channel_name === channelName ||
-                  (state.callId && c.id === state.callId)
-              );
-              if (!isStillActive && (state.status === "connected" || state.status === "calling")) {
-                console.log("[CallStore] Call is no longer in active calls list");
-                toast.info("Call has ended");
-                useCallStore.getState().endActiveCall();
-              }
-            } catch {
-              // ignore
+          try {
+            const activeCalls = await callApi.getActiveCalls();
+            const isStillActive = activeCalls.some(
+              (c) =>
+                c.channel_name === channelName ||
+                (state.callId && c.id === state.callId)
+            );
+            if (!isStillActive && (state.status === "connected" || state.status === "calling")) {
+              console.log("[CallStore] Call is no longer in active calls list");
+              toast.info("Call has ended");
+              useCallStore.getState().endActiveCall();
             }
+          } catch {
+            // ignore
           }
         }
       }
@@ -521,8 +515,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
 
     if (callId) {
       callApi.endCall(callId);
-    }
-    if (channelName) {
+    } else if (channelName) {
       callApi.leaveCall(channelName);
     }
 

@@ -245,8 +245,19 @@ class AgoraRtmService {
       });
 
       return true;
-    } catch (err) {
-      console.warn(`[Agora RTM] Failed to send peer message to ${receiverId}:`, err);
+    } catch (err: any) {
+      const isOffline =
+        err?.code === -11033 ||
+        err?.errorCode === -11033 ||
+        err?.message?.includes("-11033") ||
+        err?.message?.includes("offline") ||
+        err?.reason?.includes("offline");
+
+      if (isOffline) {
+        console.log(`[Agora RTM] User ${receiverId} is offline from RTM; push notification (FCM) was dispatched by backend.`);
+      } else {
+        console.warn(`[Agora RTM] Failed to send peer message to ${receiverId}:`, err);
+      }
       return false;
     }
   }
