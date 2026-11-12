@@ -52,9 +52,9 @@ export function WorkspaceRail() {
           <TooltipTrigger asChild>
             <Link
               href="/workspace"
-              className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm hover:bg-indigo-700 transition-colors mb-2"
+              className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-xs hover:border-indigo-500 hover:shadow-indigo-500/10 transition-all mb-2 overflow-hidden p-1.5"
             >
-              N
+              <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">Nexonetics Home</TooltipContent>

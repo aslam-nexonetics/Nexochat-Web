@@ -16,8 +16,8 @@ export default function AuthLayout({
 
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-indigo-600/20 group-hover:bg-indigo-700 transition-colors">
-              N
+            <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-sm group-hover:border-indigo-500 transition-colors overflow-hidden">
+              <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
             </div>
             <div>
               <span className="font-bold text-xl text-slate-900 tracking-tight">
@@ -116,8 +116,8 @@ export default function AuthLayout({
           {/* Mobile Brand Header */}
           <div className="lg:hidden flex justify-center mb-8">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-indigo-600/20">
-                N
+              <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-sm overflow-hidden">
+                <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
               </div>
               <span className="font-bold text-xl text-slate-900 tracking-tight">
                 Nexonetics

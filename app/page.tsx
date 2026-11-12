@@ -33,8 +33,8 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-extrabold text-sm shadow-xs">
-              N
+            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
+              <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
             </div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-lg text-slate-900 tracking-tight">
