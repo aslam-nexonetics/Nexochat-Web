@@ -13,7 +13,7 @@ async function proxyRequest(
   const url = new URL(request.url);
 
   // Preserve trailing slash if present in request URL, or ensure trailing slash for endpoints
-  // that FastAPI strictly requires them on (user-collections, profile, chat, users, auth/me)
+  // that FastAPI strictly requires them on (user-collections, profile, chat, users, auth/me, jobs, jobs/companies)
   const hasTrailingSlash =
     url.pathname.endsWith("/") ||
     request.nextUrl.pathname.endsWith("/") ||
@@ -23,7 +23,9 @@ async function proxyRequest(
     subpath.startsWith("users") ||
     subpath.startsWith("fcm") ||
     subpath.endsWith("profile/me") ||
-    subpath === "auth/me";
+    subpath === "auth/me" ||
+    subpath === "jobs" ||
+    subpath === "jobs/companies";
 
   if (hasTrailingSlash && !subpath.endsWith("/")) {
     subpath = `${subpath}/`;
@@ -110,6 +112,23 @@ async function proxyRequest(
       headers,
       body,
     });
+
+    // If 404 Not Found on GET, retry with/without trailing slash to satisfy FastAPI strict routing
+    if (backendRes.status === 404 && request.method === "GET") {
+      const altSubpath = subpath.endsWith("/") ? subpath.slice(0, -1) : `${subpath}/`;
+      const altTargetUrl = `${API_BASE_URL}/${altSubpath}${url.search}`;
+      try {
+        const altRes = await fetch(altTargetUrl, {
+          method: request.method,
+          headers,
+        });
+        if (altRes.ok || (altRes.status !== 404 && altRes.status !== 422)) {
+          backendRes = altRes;
+        }
+      } catch {
+        // Continue with original response
+      }
+    }
 
     // If 401 Unauthorized or 403 Forbidden on protected endpoints, attempt token refresh once
     const isAuthError =
