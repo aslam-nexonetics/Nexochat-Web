@@ -229,6 +229,27 @@ export const gigApi = {
     }
   },
 
+  async uploadMediaFile(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/proxy/jobs/GIG/profile/verify/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || err?.detail || "Failed to upload image");
+    }
+
+    const data = await res.json();
+    if (data?.success && data?.data?.url) {
+      return data.data.url;
+    }
+    return data?.url || data?.data?.url || "";
+  },
+
   async submitVerification(data: {
     providerId: number;
     idType: string;

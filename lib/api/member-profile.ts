@@ -103,6 +103,31 @@ export const memberProfileApi = {
     }
   },
 
+  async uploadAvatar(
+    collectionName: string,
+    profileId: number,
+    file: File
+  ): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(
+      `/api/proxy/profile/${collectionName}/profile/${profileId}/avatar/?type=profile`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || err?.detail || "Failed to upload avatar");
+    }
+
+    const data = await res.json();
+    return data?.avatar_url || data?.data?.avatar_url || data?.data?.url || "";
+  },
+
   async getUserProfile(collectionName: string, userId: number): Promise<MemberProfile | null> {
     try {
       const res = await apiClient.get<any>(

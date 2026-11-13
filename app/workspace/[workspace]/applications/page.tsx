@@ -101,12 +101,14 @@ export default function MyApplicationsPage() {
       });
   }, [workspaceSlug]);
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "Recently";
     try {
       const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "Recently";
       return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     } catch {
-      return dateStr;
+      return "Recently";
     }
   };
 
@@ -303,7 +305,7 @@ export default function MyApplicationsPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h3 className="font-bold text-sm text-slate-900">
-                      {app.jobTitle || `Position #${app.jobId}`}
+                      {app.jobTitle || (app.jobId ? `Position #${app.jobId}` : "Applied Position")}
                     </h3>
                     {getStatusBadge(app.status)}
                   </div>

@@ -61,15 +61,18 @@ export default function WorkspaceCompanyProfilePage() {
   const [selectedIndustry, setSelectedIndustry] = React.useState("");
   const [applyingJob, setApplyingJob] = React.useState<Job | null>(null);
 
+  const isTechform = workspaceSlug.toLowerCase().includes("techform");
+
   // Load companies & jobs
   React.useEffect(() => {
     let isMounted = true;
     async function loadData() {
       setIsLoading(true);
       try {
+        const jobsCollection = isTechform ? workspaceSlug : "techform";
         const [compList, jobsRes] = await Promise.all([
-          jobsApi.getCompanies({ collection: workspaceSlug }).catch(() => []),
-          jobsApi.getJobs({ collection: workspaceSlug, limit: 100 }).catch(() => ({ jobs: [] })),
+          jobsApi.getCompanies({ collection: jobsCollection }).catch(() => []),
+          jobsApi.getJobs({ collection: jobsCollection, limit: 100 }).catch(() => ({ jobs: [] })),
         ]);
 
         if (!isMounted) return;
@@ -107,9 +110,33 @@ export default function WorkspaceCompanyProfilePage() {
               website: "",
             });
           }
-        } else if (compList.length > 0) {
-          // Default to first company in list
-          setSelectedCompany(compList[0]);
+        } else {
+          // If non-techform workspace (e.g. nexonetics), check for matching company in compList or create org profile
+          const orgName =
+            activeCollection?.collectionName ||
+            workspaceSlug.charAt(0).toUpperCase() + workspaceSlug.slice(1);
+
+          const matchOrg = compList.find(
+            (c) =>
+              c.name.toLowerCase().trim() === orgName.toLowerCase().trim() ||
+              c.name.toLowerCase().trim() === workspaceSlug.toLowerCase().trim()
+          );
+
+          if (matchOrg) {
+            setSelectedCompany(matchOrg);
+          } else if (!isTechform) {
+            setSelectedCompany({
+              name: orgName,
+              description:
+                "We are an engineering-driven software venture delivering state-of-the-art mobile and cloud solutions. We craft scalable digital systems, empower tech talent, and partner with innovators to transform complex challenges into fluid user experiences.",
+              industry: "Engineering & Technology",
+              location: "Kaloor, Kochi",
+              website: "nexonetics.com",
+              size: "10-50 Employees",
+            });
+          } else if (compList.length > 0) {
+            setSelectedCompany(compList[0]);
+          }
         }
       } catch (err) {
         console.error("Failed to load company profile data:", err);
@@ -122,7 +149,7 @@ export default function WorkspaceCompanyProfilePage() {
     return () => {
       isMounted = false;
     };
-  }, [workspaceSlug, targetIdParam, targetNameParam]);
+  }, [workspaceSlug, isTechform, activeCollection, targetIdParam, targetNameParam]);
 
   // Compute jobs for selected company
   const companyJobs = React.useMemo(() => {
@@ -189,29 +216,38 @@ export default function WorkspaceCompanyProfilePage() {
     <div className="max-w-6xl mx-auto space-y-6 pb-12 font-sans">
       {/* ── Top Bar: Back to Jobs & Directory Toggle ───────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Link href={`/workspace/${workspaceSlug}/jobs`}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs h-8.5 gap-1.5 border-slate-200 cursor-pointer"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back to Job Listings</span>
-            </Button>
-          </Link>
+        {isTechform ? (
+          <div className="flex items-center gap-2">
+            <Link href={`/workspace/${workspaceSlug}/jobs`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-8.5 gap-1.5 border-slate-200 cursor-pointer"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Back to Job Listings</span>
+              </Button>
+            </Link>
 
-          <Link href={`/workspace/${workspaceSlug}/applications`}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs h-8.5 gap-1.5 border-slate-200 cursor-pointer"
-            >
-              <Briefcase className="h-3.5 w-3.5 text-indigo-600" />
-              <span>My Applications</span>
-            </Button>
-          </Link>
-        </div>
+            <Link href={`/workspace/${workspaceSlug}/applications`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-8.5 gap-1.5 border-slate-200 cursor-pointer"
+              >
+                <Briefcase className="h-3.5 w-3.5 text-indigo-600" />
+                <span>My Applications</span>
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+              <Building2 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>{selectedCompany?.name || "Company Overview"}</span>
+            </div>
+          </div>
+        )}
 
         {/* Company Quick Switcher Pills */}
         {companies.length > 1 && (

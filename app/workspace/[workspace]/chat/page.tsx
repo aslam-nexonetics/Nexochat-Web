@@ -400,30 +400,53 @@ function WorkspaceChatContent() {
     }
   }, [workspaceSlug, selectCollectionByName]);
 
+  const decodedWorkspaceSlug = React.useMemo(() => {
+    try {
+      return decodeURIComponent(workspaceSlug);
+    } catch {
+      return workspaceSlug;
+    }
+  }, [workspaceSlug]);
+
+  const formatCollectionName = React.useCallback((str: string) => {
+    try {
+      str = decodeURIComponent(str);
+    } catch {}
+    return str
+      .split(/[\s_]+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  }, []);
+
   const matchedBySlug =
     collections.find(
-      (c) => c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase()
+      (c) =>
+        c.collectionName.toLowerCase().trim() === decodedWorkspaceSlug.toLowerCase().trim() ||
+        c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase().trim()
     ) ||
     (activeCollection &&
-    activeCollection.collectionName.toLowerCase().trim() ===
-      workspaceSlug.toLowerCase()
+    (activeCollection.collectionName.toLowerCase().trim() === decodedWorkspaceSlug.toLowerCase().trim() ||
+     activeCollection.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase().trim())
       ? activeCollection
       : null);
 
   const currentCollection =
     matchedBySlug || {
       id: 0,
-      collectionName:
-        workspaceSlug.charAt(0).toUpperCase() + workspaceSlug.slice(1),
+      collectionName: formatCollectionName(decodedWorkspaceSlug),
       properties: ["Chat"],
     };
 
-  // Strictly enforce that the collectionName used for chat rooms matches the workspace route
-  const collectionName = matchedBySlug?.collectionName || workspaceSlug.toUpperCase();
+  // Strictly enforce that the collectionName used for chat API and socket calls
+  const collectionName = matchedBySlug?.collectionName || decodedWorkspaceSlug;
+  const collectionDisplayName = formatCollectionName(
+    activeCollection?.collectionName || matchedBySlug?.collectionName || decodedWorkspaceSlug
+  );
+
   const isGigCollection =
-    workspaceSlug.toLowerCase() === "gig" || collectionName.toLowerCase() === "gig";
+    decodedWorkspaceSlug.toLowerCase() === "gig" || collectionName.toLowerCase() === "gig";
   const isTechformCollection =
-    workspaceSlug.toLowerCase().includes("techform") ||
+    decodedWorkspaceSlug.toLowerCase().includes("techform") ||
     collectionName.toLowerCase().includes("techform");
 
   const handleHeaderProfileClick = React.useCallback(() => {
@@ -1288,7 +1311,7 @@ function WorkspaceChatContent() {
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div>
               <h2 className="font-extrabold text-base text-slate-900 tracking-tight">
-                {collectionName} Chat
+                {collectionDisplayName} Chat
               </h2>
               <p className="text-[11px] text-slate-400">Direct messages & inquiries</p>
             </div>
@@ -1330,7 +1353,7 @@ function WorkspaceChatContent() {
                 </div>
                 <h4 className="font-bold text-xs text-slate-800">No active conversations</h4>
                 <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] mx-auto">
-                  Click the + button above to initiate a chat with any member of {collectionName}.
+                  Click the + button above to initiate a chat with any member of {collectionDisplayName}.
                 </p>
               </div>
             ) : (
@@ -1536,7 +1559,7 @@ function WorkspaceChatContent() {
                               ? activeRole
                                 ? `${activeRole} Specialist • Click to view profile`
                                 : "GIG Service Provider • Click to view profile"
-                              : `${collectionName} Workspace • Click to view profile`}
+                              : `${collectionDisplayName} Workspace • Click to view profile`}
                           </p>
                         </div>
                       </div>
@@ -1898,10 +1921,10 @@ function WorkspaceChatContent() {
             </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold mb-3 border border-slate-200/60">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{collectionName} Chat Workspace</span>
+              <span>{collectionDisplayName} Chat Workspace</span>
             </div>
             <h3 className="font-extrabold text-lg text-slate-900 tracking-tight">
-              {isGigCollection ? "GIG Direct Conversations" : `${collectionName} Messages`}
+              {isGigCollection ? "GIG Direct Conversations" : `${collectionDisplayName} Messages`}
             </h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
               {isGigCollection
@@ -1963,7 +1986,7 @@ function WorkspaceChatContent() {
               <span>Workspace Directory</span>
             </div>
             <DialogTitle className="text-lg font-bold text-slate-900">
-              New Message in {collectionName}
+              New Message in {collectionDisplayName}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
               Select a member of this workspace to begin direct messaging.

@@ -87,11 +87,11 @@ export const jobsApi = {
     limit?: number;
   } = {}): Promise<JobApplication[]> {
     const { collection = "techform", page = 1, limit = 50 } = params;
-    const res = await apiClient.get<{
-      success: boolean;
-      data: { applications: JobApplication[] };
-    }>(`/applications/me?collection=${collection}&page=${page}&limit=${limit}`);
-    return res.data?.applications || [];
+    const res = await apiClient.get<any>(
+      `/applications/me?collection=${collection}&page=${page}&limit=${limit}`
+    );
+    const rawList = res?.data?.applications || (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+    return rawList.map(mapRawApplication);
   },
 
   // 5. Fetch Job Applicants (Recruiter View)
@@ -100,11 +100,11 @@ export const jobsApi = {
     params: { collection?: string; page?: number; limit?: number } = {}
   ): Promise<JobApplication[]> {
     const { collection = "techform", page = 1, limit = 50 } = params;
-    const res = await apiClient.get<{
-      success: boolean;
-      data: { applicants: JobApplication[] };
-    }>(`/jobs/${jobId}/applications?collection=${collection}&page=${page}&limit=${limit}`);
-    return res.data?.applicants || [];
+    const res = await apiClient.get<any>(
+      `/jobs/${jobId}/applications?collection=${collection}&page=${page}&limit=${limit}`
+    );
+    const rawList = res?.data?.applicants || (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+    return rawList.map(mapRawApplication);
   },
 
   // 6. Update Application Status (Recruiter Action)
@@ -486,3 +486,76 @@ export const jobsApi = {
     await apiClient.delete("/job-profiles/me/resume");
   },
 };
+
+function mapRawApplication(raw: any): JobApplication {
+  if (!raw) {
+    return {
+      id: 0,
+      jobId: 0,
+      candidateId: 0,
+      status: "Applied",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const job = raw.job || {};
+  const rawId = raw.id ?? raw.application_id ?? raw.applicationId ?? 0;
+  const rawJobId = raw.job_id ?? raw.jobId ?? job.id ?? 0;
+  const rawCandidateId = raw.candidate_id ?? raw.candidateId ?? raw.user_id ?? raw.userId ?? 0;
+
+  const jobTitle =
+    job.title ||
+    job.jobTitle ||
+    raw.job_title ||
+    raw.jobTitle ||
+    (rawJobId ? `Position #${rawJobId}` : "Applied Position");
+
+  const companyName =
+    job.company ||
+    job.company_name ||
+    job.companyName ||
+    raw.company_name ||
+    raw.companyName ||
+    "TechForm Partner";
+
+  const jobLocation =
+    job.location ||
+    job.jobLocation ||
+    raw.job_location ||
+    raw.jobLocation ||
+    null;
+
+  const employmentType =
+    job.jobType ||
+    job.job_type ||
+    job.employment_type ||
+    job.employmentType ||
+    raw.employment_type ||
+    raw.employmentType ||
+    null;
+
+  const companyLogo =
+    job.company_logo ||
+    job.companyLogo ||
+    raw.company_logo ||
+    raw.companyLogo ||
+    null;
+
+  return {
+    id: typeof rawId === "number" ? rawId : parseInt(rawId, 10) || 0,
+    jobId: typeof rawJobId === "number" ? rawJobId : parseInt(rawJobId, 10) || 0,
+    candidateId: typeof rawCandidateId === "number" ? rawCandidateId : parseInt(rawCandidateId, 10) || 0,
+    resumeSnapshotUrl: raw.resume_snapshot_url ?? raw.resumeSnapshotUrl ?? raw.resume_url ?? raw.resumeUrl ?? null,
+    status: raw.status || "Applied",
+    coverLetter: raw.cover_letter ?? raw.coverLetter ?? null,
+    createdAt: raw.created_at || raw.createdAt || new Date().toISOString(),
+    updatedAt: raw.updated_at || raw.updatedAt || raw.created_at || new Date().toISOString(),
+    jobTitle,
+    jobLocation,
+    employmentType,
+    companyName,
+    companyLogo,
+    profileSnapshot: raw.profile_snapshot ?? raw.profileSnapshot ?? null,
+  };
+}

@@ -40,6 +40,7 @@ import {
   Edit3,
   AlertTriangle,
   Phone,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1973,6 +1974,42 @@ function GigProviderProfileView({
   const [isSubmittingKyc, setIsSubmittingKyc] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
+  // Avatar / Profile photo state & handler
+  const [avatarUrl, setAvatarUrl] = React.useState<string>("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (JPG, PNG)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size exceeds 10MB limit");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const uploadedUrl = await gigApi.uploadMediaFile(file);
+      if (uploadedUrl) {
+        setAvatarUrl(uploadedUrl);
+        toast.success("Profile photo uploaded!");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload profile photo");
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    }
+  };
+
   // AI Boat / Assistant State
   const [botConfig, setBotConfig] = React.useState<GigBotConfig | null>(null);
   const [isLoadingBot, setIsLoadingBot] = React.useState(true);
@@ -2038,6 +2075,7 @@ function GigProviderProfileView({
         setIsEditing(false); // Display View Mode when already saved!
         setFirstName(data.firstName);
         setLastName(data.lastName);
+        setAvatarUrl(data.avatarUrl || "");
         if (data.specialization) {
           setCategory(data.specialization);
           setCustomCategory("");
@@ -2055,6 +2093,7 @@ function GigProviderProfileView({
         const parts = (user?.fullName || "").split(" ");
         setFirstName(parts[0] || user?.username || "Contractor");
         setLastName(parts.slice(1).join(" ") || "Tech");
+        setAvatarUrl("");
       }
     } catch (err) {
       console.error("Failed to load provider profile:", err);
@@ -2106,6 +2145,7 @@ function GigProviderProfileView({
           bio,
           city,
           area,
+          avatarUrl: avatarUrl || undefined,
           workingRadius: Number(workingRadius) || 15,
           hourlyRate: Number(hourlyRate) || 350,
         });
@@ -2120,6 +2160,7 @@ function GigProviderProfileView({
           bio,
           city,
           area,
+          avatarUrl: avatarUrl || undefined,
           workingRadius: Number(workingRadius) || 15,
           hourlyRate: Number(hourlyRate) || 350,
         });
@@ -3143,11 +3184,105 @@ function GigProviderProfileView({
           {/* Form */}
           <form
             onSubmit={handleSave}
-            className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4"
+            className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6"
           >
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
-              Trade & Coverage Configuration
-            </h2>
+            {/* ── Profile Photo Section ── */}
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-2">
+                Profile Photo
+              </label>
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <input
+                  type="file"
+                  ref={avatarInputRef}
+                  onChange={handleAvatarFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <div className="relative group shrink-0">
+                  <div
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="h-24 w-24 rounded-2xl bg-white border-2 border-dashed border-slate-300 hover:border-emerald-500 text-slate-700 flex items-center justify-center font-black text-2xl overflow-hidden cursor-pointer shadow-xs transition-all relative"
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Provider photo"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-slate-400">
+                        <Camera className="h-7 w-7 text-slate-400 mb-1" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Add Photo</span>
+                      </div>
+                    )}
+
+                    {isUploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
+                        <Loader2 className="h-6 w-6 animate-spin text-white mb-1" />
+                        <span className="text-[10px] font-semibold">Uploading...</span>
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                      <Camera className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md hover:bg-emerald-700 transition-colors cursor-pointer border-2 border-white"
+                    title="Change profile photo"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 text-center sm:text-left flex-1">
+                  <h3 className="text-xs font-bold text-slate-900">
+                    Upload Your Profile Picture
+                  </h3>
+                  <p className="text-[11px] text-slate-500 max-w-md leading-relaxed">
+                    A professional photo increases client booking trust by over 40%. Supports JPG or PNG format up to 10MB.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1 justify-center sm:justify-start">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingAvatar}
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="h-8 px-3 text-xs rounded-xl border-slate-200 text-slate-700 hover:bg-white cursor-pointer shadow-2xs font-semibold gap-1.5"
+                    >
+                      {isUploadingAvatar ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5 text-emerald-600" />
+                      )}
+                      <span>{avatarUrl ? "Change Photo" : "Choose Image"}</span>
+                    </Button>
+                    {avatarUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAvatarUrl("")}
+                        className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl cursor-pointer font-semibold"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                Trade & Coverage Configuration
+              </h2>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -3638,6 +3773,39 @@ function CollectionMemberProfileView({
   const [isActive, setIsActive] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (JPG, PNG)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size exceeds 10MB limit");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const url = await memberProfileApi.uploadAvatar(collectionName, profile?.id || 0, file);
+      if (url) {
+        setProfile((prev) => (prev ? { ...prev, avatarUrl: url } : null));
+        toast.success("Profile photo updated!");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload avatar");
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    }
+  };
 
   React.useEffect(() => {
     let isMounted = true;
@@ -3722,18 +3890,58 @@ function CollectionMemberProfileView({
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-2xl border border-indigo-200 shrink-0 overflow-hidden">
-              {profile?.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt={displayName}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                initials
+            <div className="relative group shrink-0">
+              <input
+                type="file"
+                ref={avatarInputRef}
+                onChange={handleAvatarFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <div
+                onClick={() => {
+                  if (!isViewingOther) avatarInputRef.current?.click();
+                }}
+                className={cn(
+                  "h-16 w-16 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-extrabold text-2xl border border-indigo-200 shrink-0 overflow-hidden relative",
+                  !isViewingOther && "cursor-pointer"
+                )}
+              >
+                {profile?.avatarUrl ? (
+                  <img
+                    src={profile.avatarUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  initials
+                )}
+
+                {isUploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                )}
+
+                {!isViewingOther && !isUploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <Camera className="h-5 w-5 text-white" />
+                  </div>
+                )}
+              </div>
+
+              {!isViewingOther && (
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md hover:bg-indigo-700 transition-colors cursor-pointer border-2 border-white"
+                  title="Change avatar"
+                >
+                  <Camera className="h-3 w-3" />
+                </button>
               )}
             </div>
             <div>

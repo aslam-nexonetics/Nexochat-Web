@@ -62,8 +62,11 @@ export default function JobsBrowserPage() {
         experienceLevel: experienceLevel || undefined,
       };
 
+      const isTechform = workspaceSlug.toLowerCase().includes("techform");
+      const targetCollection = isTechform ? workspaceSlug : "techform";
+
       const res = await jobsApi.getJobs({
-        collection: workspaceSlug,
+        collection: targetCollection,
         filter,
         page: 1,
         limit: 50,
