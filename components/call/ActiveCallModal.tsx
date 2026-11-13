@@ -39,6 +39,7 @@ export function ActiveCallModal() {
     callDuration,
     hasRemoteUser,
     remoteHasVideo,
+    localHasVideo,
     facingMode,
     isSwitchingCamera,
     switchCamera,
@@ -62,7 +63,16 @@ export function ActiveCallModal() {
         agoraRtcService.attachRemoteVideo(remoteVideoRef.current);
       }
     }
-  }, [status, callType, isVideoOff, hasRemoteUser, remoteHasVideo, isMinimized]);
+  }, [
+    status,
+    callType,
+    isVideoOff,
+    hasRemoteUser,
+    remoteHasVideo,
+    localHasVideo,
+    isMinimized,
+    facingMode,
+  ]);
 
   if (status !== "calling" && status !== "connected") {
     return null;
@@ -229,25 +239,30 @@ export function ActiveCallModal() {
           {callType === "video" && (
             <div
               className={`absolute bottom-24 right-4 z-20 w-32 h-44 sm:w-44 sm:h-60 rounded-2xl bg-slate-900 border-2 border-slate-700 shadow-2xl overflow-hidden transition-all ${
-                isVideoOff ? "flex items-center justify-center" : ""
+                isVideoOff || !localHasVideo ? "flex items-center justify-center" : ""
               }`}
             >
-              {isVideoOff && (
+              {isVideoOff ? (
                 <div className="flex flex-col items-center text-slate-400 gap-1">
                   <VideoOff className="h-6 w-6" />
                   <span className="text-[10px]">Camera Off</span>
                 </div>
-              )}
+              ) : !localHasVideo ? (
+                <div className="flex flex-col items-center text-slate-400 gap-1.5 p-2 text-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
+                  <span className="text-[10px] text-slate-300">Starting Camera...</span>
+                </div>
+              ) : null}
               <div
                 ref={localVideoRef}
-                className={`w-full h-full object-cover transition-transform duration-300 ${
+                className={`relative w-full h-full overflow-hidden transition-transform duration-300 ${
                   facingMode === "user" ? "-scale-x-100" : ""
-                } ${isVideoOff ? "hidden" : "block"}`}
+                } ${isVideoOff || !localHasVideo ? "hidden" : "block"}`}
               />
               <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-semibold text-white">
                 You
               </div>
-              {!isVideoOff && (
+              {!isVideoOff && localHasVideo && (
                 <button
                   type="button"
                   onClick={(e) => {

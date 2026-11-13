@@ -14,6 +14,7 @@ export interface AgoraRtcJoinOptions {
   token: string;
   uid: number;
   callType: "audio" | "video";
+  onLocalVideoTrack?: (track: ICameraVideoTrack | null) => void;
   onRemoteUserJoined?: (uid: number) => void;
   onRemoteUserLeft?: (uid: number) => void;
   onRemoteVideoTrack?: (track: IRemoteVideoTrack | null) => void;
@@ -242,66 +243,59 @@ class AgoraRtcService {
     // Create local tracks with production-grade AEC, ANS, AGC and fallback
     const tracksToPublish: (IMicrophoneAudioTrack | ICameraVideoTrack)[] = [];
 
-    // 1. Detect microphone hardware availability before requesting track to avoid DEVICE_NOT_FOUND errors
+    // 1. Microphone track (acquire directly so mobile browsers prompt for permission)
     try {
-      const mics = await AgoraRTC.getMicrophones().catch(() => []);
-      if (mics && mics.length > 0) {
-        try {
-          this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-            encoderConfig: "speech_standard",
-            AEC: true,
-            ANS: true,
-            AGC: true,
-          });
-          tracksToPublish.push(this.localAudioTrack);
-        } catch (advancedErr: any) {
-          const isNotFound =
-            advancedErr?.code === "DEVICE_NOT_FOUND" ||
-            advancedErr?.name === "NotFoundError" ||
-            advancedErr?.message?.includes("not found");
-          if (!isNotFound) {
-            try {
-              this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-              tracksToPublish.push(this.localAudioTrack);
-            } catch (basicErr: any) {
-              console.warn("[Agora RTC] Microphone acquisition error:", basicErr?.message || basicErr);
-            }
-          } else {
-            console.warn("[Agora RTC] Microphone device was not found on this system.");
-          }
-        }
-      } else {
-        console.log("[Agora RTC] No microphone hardware connected (listening-only mode).");
+      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        encoderConfig: "speech_standard",
+        AEC: true,
+        ANS: true,
+        AGC: true,
+      });
+      tracksToPublish.push(this.localAudioTrack);
+    } catch (advancedErr: any) {
+      console.warn("[Agora RTC] Advanced mic acquisition failed, attempting fallback:", advancedErr?.message || advancedErr);
+      try {
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        tracksToPublish.push(this.localAudioTrack);
+      } catch (basicErr: any) {
+        console.warn("[Agora RTC] Microphone acquisition error:", basicErr?.message || basicErr);
       }
-    } catch {
-      // ignore
     }
 
-    // 2. Detect camera hardware availability before requesting track
+    // 2. Camera video track for video calls (acquire directly with facingMode: "user")
     if (options.callType === "video") {
       this.currentFacingMode = "user";
       try {
-        const cams = await AgoraRTC.getCameras().catch(() => []);
-        if (cams && cams.length > 0) {
-          try {
-            this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
-              facingMode: "user",
-              encoderConfig: "720p_1",
-              optimizationMode: "detail",
-            });
-            tracksToPublish.push(this.localVideoTrack);
+        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+          facingMode: "user",
+          encoderConfig: "720p_1",
+          optimizationMode: "detail",
+        });
+        tracksToPublish.push(this.localVideoTrack);
 
-            if (this.localVideoElement) {
-              this.localVideoTrack.play(this.localVideoElement, { fit: "cover" });
-            }
-          } catch (err: any) {
-            console.warn("[Agora RTC] Camera acquisition error:", err?.message || err);
-          }
-        } else {
-          console.log("[Agora RTC] No camera hardware connected on this system.");
+        if (options.onLocalVideoTrack) {
+          options.onLocalVideoTrack(this.localVideoTrack);
         }
-      } catch {
-        // ignore
+
+        if (this.localVideoElement) {
+          try {
+            if (this.localVideoTrack.isPlaying) {
+              this.localVideoTrack.stop();
+            }
+            this.localVideoTrack.play(this.localVideoElement, { fit: "cover" });
+            const videoEl = this.localVideoElement.querySelector("video");
+            if (videoEl) {
+              videoEl.setAttribute("playsinline", "true");
+              videoEl.setAttribute("webkit-playsinline", "true");
+              videoEl.muted = true;
+              videoEl.play().catch(() => {});
+            }
+          } catch (playErr) {
+            console.warn("[Agora RTC] Error playing local video in join:", playErr);
+          }
+        }
+      } catch (err: any) {
+        console.warn("[Agora RTC] Camera acquisition error:", err?.message || err);
       }
     }
 
@@ -324,13 +318,21 @@ class AgoraRtcService {
     if (this.localVideoTrack) {
       try {
         const existingVideo = element.querySelector("video");
-        if (this.localVideoTrack.isPlaying && existingVideo) {
+        if (this.localVideoTrack.isPlaying && existingVideo && existingVideo.srcObject) {
+          existingVideo.play().catch(() => {});
           return;
         }
         if (this.localVideoTrack.isPlaying) {
           this.localVideoTrack.stop();
         }
         this.localVideoTrack.play(element, { fit: "cover" });
+        const videoEl = element.querySelector("video");
+        if (videoEl) {
+          videoEl.setAttribute("playsinline", "true");
+          videoEl.setAttribute("webkit-playsinline", "true");
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
+        }
       } catch (err) {
         console.warn("[Agora RTC] Error playing local video track:", err);
       }

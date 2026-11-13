@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Wrench,
   Bell,
+  ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1273,10 +1274,16 @@ function WorkspaceChatContent() {
   );
 
   return (
-    <div className="h-[calc(100vh-8.5rem)] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+    <div className="h-[calc(100dvh-7.5rem)] sm:h-[calc(100vh-8.5rem)] flex flex-col bg-white border border-slate-200 rounded-xl sm:rounded-2xl shadow-xs overflow-hidden">
       <div className="flex-1 flex overflow-hidden">
-        {/* ── LEFT PANEL: Conversations List (width: 360px) ────────────────────── */}
-        <aside className="w-80 sm:w-92 border-r border-slate-200 bg-white flex flex-col shrink-0">
+        {/* ── LEFT PANEL: Conversations List ────────────────────── */}
+        <aside
+          className={cn(
+            "border-r border-slate-200 bg-white flex flex-col shrink-0",
+            "w-full md:w-80 lg:w-92",
+            activeRoom ? "hidden md:flex" : "flex flex-1"
+          )}
+        >
           {/* Header */}
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div>
@@ -1406,8 +1413,13 @@ function WorkspaceChatContent() {
           </div>
         </aside>
 
-        {/* ── RIGHT PANEL: Active Chat Room ──────────────────────────────────── */}
-        <main className="flex-1 flex flex-col bg-slate-50/50 min-w-0">
+        {/* ── RIGHT PANEL: Active Chat Room / Empty Placeholder ─────────────── */}
+        <main
+          className={cn(
+            "flex-1 flex flex-col bg-slate-50/50 min-w-0",
+            activeRoom ? "flex w-full" : "hidden md:flex"
+          )}
+        >
           {activeRoom ? (
             (() => {
               const activeTitle =
@@ -1448,69 +1460,85 @@ function WorkspaceChatContent() {
               return (
                 <>
                   {/* Room Header */}
-                  <div className="h-16 px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-4 shrink-0 shadow-2xs">
-                    <div
-                      onClick={handleHeaderProfileClick}
-                      className={cn(
-                        "flex items-center gap-3 min-w-0 transition-opacity text-left",
-                        !isAryaAiActive && "cursor-pointer group hover:opacity-85"
-                      )}
-                      title={!isAryaAiActive ? `Click to view ${activeTitle}'s profile` : undefined}
-                    >
-                      {isAryaAiActive ? (
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                          <Bot className="h-5 w-5" />
+                  <div className="h-16 px-3 sm:px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-2xs">
+                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
+                      {/* Mobile Back Button to return to conversation list */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setActiveRoom(null);
+                          router.replace(`/workspace/${workspaceSlug}/chat`);
+                        }}
+                        className="md:hidden h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 shrink-0 cursor-pointer -ml-1"
+                        title="Back to conversations"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+
+                      <div
+                        onClick={handleHeaderProfileClick}
+                        className={cn(
+                          "flex items-center gap-2.5 sm:gap-3 min-w-0 transition-opacity text-left flex-1",
+                          !isAryaAiActive && "cursor-pointer group hover:opacity-85"
+                        )}
+                        title={!isAryaAiActive ? `Click to view ${activeTitle}'s profile` : undefined}
+                      >
+                        {isAryaAiActive ? (
+                          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                            <Bot className="h-5 w-5" />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden group-hover:ring-2 group-hover:ring-indigo-400 transition-all">
+                            {activeRoom.avatarUrl ? (
+                              <img
+                                src={activeRoom.avatarUrl}
+                                alt={activeTitle}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              activeInitials
+                            )}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-sm text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                              {headerTitle}
+                            </h3>
+                            {headerRole && (
+                              <span className={cn(
+                                "px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 shadow-2xs",
+                                isAryaAiActive
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-blue-50 text-blue-700 border border-blue-200"
+                              )}>
+                                {isAryaAiActive ? <Bot className="h-3 w-3 text-emerald-600" /> : <Wrench className="h-3 w-3 text-blue-600" />}
+                                <span>{headerRole}</span>
+                              </span>
+                            )}
+                            {isGigCollection && !isAryaAiActive && (
+                              <span title="Verified Professional" className="inline-flex items-center">
+                                <ShieldCheck className="h-4 w-4 text-blue-600 fill-blue-50 shrink-0" />
+                              </span>
+                            )}
+                            {appointmentIdParam && (
+                              <span className="px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                                <Clock className="h-3 w-3 text-amber-600" />
+                                <span>Appointment #{appointmentIdParam}</span>
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {isAryaAiActive
+                              ? `Smart Assistant for ${activeTitle} • Instant answers & bookings`
+                              : isGigCollection
+                              ? activeRole
+                                ? `${activeRole} Specialist • Click to view profile`
+                                : "GIG Service Provider • Click to view profile"
+                              : `${collectionName} Workspace • Click to view profile`}
+                          </p>
                         </div>
-                      ) : (
-                        <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden group-hover:ring-2 group-hover:ring-indigo-400 transition-all">
-                          {activeRoom.avatarUrl ? (
-                            <img
-                              src={activeRoom.avatarUrl}
-                              alt={activeTitle}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            activeInitials
-                          )}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-sm text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
-                            {headerTitle}
-                          </h3>
-                          {headerRole && (
-                            <span className={cn(
-                              "px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 shadow-2xs",
-                              isAryaAiActive
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-blue-50 text-blue-700 border border-blue-200"
-                            )}>
-                              {isAryaAiActive ? <Bot className="h-3 w-3 text-emerald-600" /> : <Wrench className="h-3 w-3 text-blue-600" />}
-                              <span>{headerRole}</span>
-                            </span>
-                          )}
-                          {isGigCollection && !isAryaAiActive && (
-                            <span title="Verified Professional" className="inline-flex items-center">
-                              <ShieldCheck className="h-4 w-4 text-blue-600 fill-blue-50 shrink-0" />
-                            </span>
-                          )}
-                          {appointmentIdParam && (
-                            <span className="px-2 py-0.5 text-[11px] font-bold rounded-md flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
-                              <Clock className="h-3 w-3 text-amber-600" />
-                              <span>Appointment #{appointmentIdParam}</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {isAryaAiActive
-                            ? `Smart Assistant for ${activeTitle} • Instant answers & bookings`
-                            : isGigCollection
-                            ? activeRole
-                              ? `${activeRole} Specialist • Click to view profile`
-                              : "GIG Service Provider • Click to view profile"
-                            : `${collectionName} Workspace • Click to view profile`}
-                        </p>
                       </div>
                     </div>
 

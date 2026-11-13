@@ -27,6 +27,7 @@ export interface CallStoreState {
   hasRemoteUser: boolean;
   remoteUid: number | null;
   remoteHasVideo: boolean;
+  localHasVideo: boolean;
   facingMode: "user" | "environment";
   isSwitchingCamera: boolean;
 
@@ -80,6 +81,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
   hasRemoteUser: false,
   remoteUid: null,
   remoteHasVideo: false,
+  localHasVideo: false,
   facingMode: "user",
   isSwitchingCamera: false,
 
@@ -111,6 +113,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       hasRemoteUser: false,
       remoteUid: null,
       remoteHasVideo: false,
+      localHasVideo: false,
       facingMode: "user",
       isSwitchingCamera: false,
     });
@@ -198,6 +201,9 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         token: rtcToken,
         uid: currentNumericUid,
         callType: params.callType,
+        onLocalVideoTrack: (track) => {
+          set({ localHasVideo: !!track });
+        },
         onRemoteUserJoined: (remoteUid) => {
           console.log(`[CallStore] Remote user ${remoteUid} joined RTC channel`);
           if (noAnswerTimeout) clearTimeout(noAnswerTimeout);
@@ -273,6 +279,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       hasRemoteUser: false,
       remoteUid: message.caller_id,
       remoteHasVideo: false,
+      localHasVideo: false,
       facingMode: "user",
       isSwitchingCamera: false,
     });
@@ -352,6 +359,9 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         token: rtcToken || "",
         uid: currentNumericUid,
         callType: state.callType,
+        onLocalVideoTrack: (track) => {
+          set({ localHasVideo: !!track });
+        },
         onRemoteUserJoined: (uid) => {
           console.log(`[CallStore] Remote user ${uid} joined RTC channel`);
           set({ hasRemoteUser: true, remoteUid: uid });
@@ -446,6 +456,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       status: "idle",
       callId: null,
       channelName: null,
+      localHasVideo: false,
       facingMode: "user",
       isSwitchingCamera: false,
     });
@@ -503,6 +514,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       hasRemoteUser: false,
       remoteUid: null,
       remoteHasVideo: false,
+      localHasVideo: false,
       facingMode: "user",
       isSwitchingCamera: false,
     });
@@ -586,6 +598,7 @@ if (typeof window !== "undefined") {
           agoraRtcService.leave();
           useCallStore.setState({
             status: "idle",
+            localHasVideo: false,
             facingMode: "user",
             isSwitchingCamera: false,
           });
@@ -598,6 +611,7 @@ if (typeof window !== "undefined") {
           toast.info("Caller cancelled the call");
           useCallStore.setState({
             status: "idle",
+            localHasVideo: false,
             facingMode: "user",
             isSwitchingCamera: false,
           });
@@ -624,6 +638,7 @@ if (typeof window !== "undefined") {
             hasRemoteUser: false,
             remoteUid: null,
             remoteHasVideo: false,
+            localHasVideo: false,
             facingMode: "user",
             isSwitchingCamera: false,
           });
