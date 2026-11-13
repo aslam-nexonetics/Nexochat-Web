@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { parseServerDate } from "@/lib/utils";
 
 export interface ChatParticipant {
   id: number;
@@ -233,8 +234,8 @@ export const chatApi = {
       // The backend returns messages sorted newest-first (descending).
       // Sort chronologically ascending (oldest first, newest at the bottom):
       const chronological = [...mapped].sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
+        const timeA = parseServerDate(a.createdAt).getTime();
+        const timeB = parseServerDate(b.createdAt).getTime();
         if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
           return timeA - timeB;
         }

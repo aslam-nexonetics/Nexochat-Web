@@ -43,7 +43,7 @@ import { gigApi } from "@/lib/api/gig";
 import { GigBotKnowledgeEngine, GigBoatQuestionsService } from "@/lib/api/gig-bot";
 import { GigBotReply } from "@/lib/types/gig";
 import { requestFcmToken, onFcmForegroundMessage } from "@/lib/firebase";
-import { cn } from "@/lib/utils";
+import { cn, parseServerDate, formatMessageTime, formatChatListTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function WorkspaceChatPage() {
@@ -61,8 +61,8 @@ export default function WorkspaceChatPage() {
 }
 
 function isSameDay(d1: string | Date, d2: string | Date): boolean {
-  const a = new Date(d1);
-  const b = new Date(d2);
+  const a = parseServerDate(d1);
+  const b = parseServerDate(d2);
   return (
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
@@ -71,7 +71,7 @@ function isSameDay(d1: string | Date, d2: string | Date): boolean {
 }
 
 function formatDateSeparator(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = parseServerDate(dateStr);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
@@ -1418,10 +1418,7 @@ function WorkspaceChatContent() {
                         </div>
                         {room.lastMessageTime && (
                           <span className="text-[10px] text-slate-400 shrink-0">
-                            {new Date(room.lastMessageTime).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatChatListTime(room.lastMessageTime)}
                           </span>
                         )}
                       </div>
@@ -1848,12 +1845,7 @@ function WorkspaceChatContent() {
                                       >
                                         <span className="font-semibold text-slate-700">{displayName}</span>
                                         <span>·</span>
-                                        <span>
-                                          {new Date(msg.createdAt).toLocaleTimeString([], {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                          })}
-                                        </span>
+                                        <span>{formatMessageTime(msg.createdAt)}</span>
                                       </div>
 
                                       <div

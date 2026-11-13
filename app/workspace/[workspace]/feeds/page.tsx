@@ -28,6 +28,7 @@ import {
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { feedsApi, FeedPost, FeedComment } from "@/lib/api/feeds";
+import { parseServerDate, formatMessageTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function WorkspaceFeedsPage() {
@@ -289,16 +290,12 @@ export default function WorkspaceFeedsPage() {
                         <span className="text-[10px] text-slate-400">@{post.author.username}</span>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        {new Date(post.createdAt).toLocaleDateString([], {
+                        {parseServerDate(post.createdAt).toLocaleDateString([], {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
                         })}{" "}
-                        ·{" "}
-                        {new Date(post.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        · {formatMessageTime(post.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -398,10 +395,7 @@ export default function WorkspaceFeedsPage() {
                                   {c.author.fullName}
                                 </span>
                                 <span className="text-[10px] text-slate-400">
-                                  {new Date(c.createdAt).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                                  {formatMessageTime(c.createdAt)}
                                 </span>
                               </div>
                               <p className="text-xs text-slate-700">{c.comment}</p>

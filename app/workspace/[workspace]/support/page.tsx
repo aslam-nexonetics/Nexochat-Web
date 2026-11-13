@@ -18,12 +18,14 @@ import {
   UserCheck,
   CheckCheck,
   ShieldAlert,
+  ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspaceStore } from "@/lib/store/workspace-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { guestChatApi, GuestQueueItem, GuestMessage } from "@/lib/api/guest-chat";
+import { cn, formatMessageTime, formatChatListTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function WorkspaceSupportPage() {
@@ -54,25 +56,34 @@ export default function WorkspaceSupportPage() {
     }
   }, [workspaceSlug, selectCollectionByName]);
 
+  const decodedWorkspaceSlug = React.useMemo(() => {
+    try {
+      return decodeURIComponent(workspaceSlug);
+    } catch {
+      return workspaceSlug;
+    }
+  }, [workspaceSlug]);
+
   const matchedBySlug =
     collections.find(
-      (c) => c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase()
+      (c) =>
+        c.collectionName.toLowerCase().trim() === decodedWorkspaceSlug.toLowerCase().trim() ||
+        c.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase().trim()
     ) ||
     (activeCollection &&
-    activeCollection.collectionName.toLowerCase().trim() ===
-      workspaceSlug.toLowerCase()
+    (activeCollection.collectionName.toLowerCase().trim() === decodedWorkspaceSlug.toLowerCase().trim() ||
+     activeCollection.collectionName.toLowerCase().trim() === workspaceSlug.toLowerCase().trim())
       ? activeCollection
       : null);
 
-  const currentCollection =
-    matchedBySlug || {
-      id: 0,
-      collectionName:
-        workspaceSlug.charAt(0).toUpperCase() + workspaceSlug.slice(1),
-      properties: ["guest"],
-    };
-
-  const collectionName = matchedBySlug?.collectionName || workspaceSlug.toUpperCase();
+  const collectionName = matchedBySlug?.collectionName || decodedWorkspaceSlug;
+  const collectionDisplayName =
+    activeCollection?.collectionName ||
+    matchedBySlug?.collectionName ||
+    decodedWorkspaceSlug
+      .split(/[\s_]+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
 
   // 1. Fetch guest queue
   const loadQueue = React.useCallback(async () => {
@@ -82,7 +93,7 @@ export default function WorkspaceSupportPage() {
       const filter = statusFilter === "all" ? undefined : statusFilter;
       const items = await guestChatApi.getQueue(collectionName, 1, 30, filter);
       setQueue(items);
-      if (items.length > 0 && !activeItem) {
+      if (items.length > 0 && !activeItem && typeof window !== "undefined" && window.innerWidth >= 768) {
         setActiveItem(items[0]);
       }
     } catch (err) {
@@ -237,15 +248,20 @@ export default function WorkspaceSupportPage() {
   );
 
   return (
-    <div className="h-[calc(100vh-8.5rem)] flex flex-col bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden font-sans">
+    <div className="h-[calc(100dvh-7.5rem)] sm:h-[calc(100vh-8.5rem)] flex flex-col bg-white border border-slate-200 rounded-xl sm:rounded-2xl shadow-xs overflow-hidden font-sans">
       <div className="flex-1 flex overflow-hidden">
         {/* ── LEFT PANEL: Helpdesk Queue (width: 380px) ───────────────────────── */}
-        <aside className="w-80 sm:w-96 border-r border-slate-200 bg-white flex flex-col shrink-0">
+        <aside
+          className={cn(
+            "border-r border-slate-200 bg-white flex flex-col shrink-0 w-full md:w-80 lg:w-96",
+            activeItem ? "hidden md:flex" : "flex flex-1"
+          )}
+        >
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div>
               <div className="flex items-center gap-1.5">
                 <h2 className="font-extrabold text-base text-slate-900 tracking-tight">
-                  {collectionName} Helpdesk
+                  {collectionDisplayName} Helpdesk
                 </h2>
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -311,7 +327,7 @@ export default function WorkspaceSupportPage() {
                 </div>
                 <h4 className="font-bold text-xs text-slate-800">No tickets in this state</h4>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Queue is clear for {collectionName}.
+                  Queue is clear for {collectionDisplayName}.
                 </p>
               </div>
             ) : (
@@ -354,12 +370,7 @@ export default function WorkspaceSupportPage() {
 
                     <div className="flex items-center justify-between text-[10px] text-slate-400">
                       <span>{item.guestIdentifier.slice(0, 16)}</span>
-                      <span>
-                        {new Date(item.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                      <span>{formatChatListTime(item.createdAt)}</span>
                     </div>
                   </button>
                 );
@@ -369,27 +380,41 @@ export default function WorkspaceSupportPage() {
         </aside>
 
         {/* ── RIGHT PANEL: Customer Care Room ────────────────────────────────── */}
-        <main className="flex-1 flex flex-col bg-slate-50/50 min-w-0">
+        <main
+          className={cn(
+            "flex-1 flex flex-col bg-slate-50/50 min-w-0 overflow-hidden",
+            !activeItem ? "hidden md:flex" : "flex"
+          )}
+        >
           {activeItem ? (
             <>
               {/* Header */}
-              <div className="h-16 px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-4 shrink-0 shadow-2xs">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-slate-900 truncate">
-                      {activeItem.guestName}
-                    </h3>
-                    <Badge variant="outline" className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 py-0">
-                      Session #{activeItem.sessionId || activeItem.id}
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border-emerald-200 py-0 gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>3s Live Stream</span>
-                    </Badge>
+              <div className="h-16 px-4 sm:px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-2xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    onClick={() => setActiveItem(null)}
+                    className="md:hidden p-1.5 -ml-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
+                    title="Back to queue"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
+                      <h3 className="font-bold text-sm text-slate-900 truncate">
+                        {activeItem.guestName}
+                      </h3>
+                      <Badge variant="outline" className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 py-0">
+                        Session #{activeItem.sessionId || activeItem.id}
+                      </Badge>
+                      <Badge variant="outline" className="hidden sm:inline-flex text-[10px] font-semibold text-emerald-700 bg-emerald-50 border-emerald-200 py-0 gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>3s Live Stream</span>
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                      Identifier: {activeItem.guestIdentifier} · {activeItem.initialMessage}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                    Identifier: {activeItem.guestIdentifier} · {activeItem.initialMessage}
-                  </p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -488,10 +513,7 @@ export default function WorkspaceSupportPage() {
                                 isAgent ? "text-indigo-200" : "text-slate-400"
                               }`}
                             >
-                              {new Date(m.createdAt).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
+                              {formatMessageTime(m.createdAt)}
                             </span>
                           </div>
                         </div>
