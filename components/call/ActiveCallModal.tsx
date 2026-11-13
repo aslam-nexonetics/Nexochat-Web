@@ -11,6 +11,8 @@ import {
   PhoneOff,
   Minus,
   PictureInPicture2,
+  SwitchCamera,
+  Loader2,
   User,
   ShieldCheck,
 } from "lucide-react";
@@ -37,6 +39,9 @@ export function ActiveCallModal() {
     callDuration,
     hasRemoteUser,
     remoteHasVideo,
+    facingMode,
+    isSwitchingCamera,
+    switchCamera,
     toggleMute,
     toggleVideo,
     toggleMinimize,
@@ -235,19 +240,37 @@ export function ActiveCallModal() {
               )}
               <div
                 ref={localVideoRef}
-                className={`w-full h-full object-cover -scale-x-100 ${
-                  isVideoOff ? "hidden" : "block"
-                }`}
+                className={`w-full h-full object-cover transition-transform duration-300 ${
+                  facingMode === "user" ? "-scale-x-100" : ""
+                } ${isVideoOff ? "hidden" : "block"}`}
               />
               <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-semibold text-white">
                 You
               </div>
+              {!isVideoOff && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    switchCamera();
+                  }}
+                  disabled={isSwitchingCamera}
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-sm transition-transform active:scale-90 cursor-pointer shadow-md"
+                  title={facingMode === "user" ? "Switch to back camera" : "Switch to front camera"}
+                >
+                  {isSwitchingCamera ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <SwitchCamera className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
 
         {/* Bottom Floating Control Bar */}
-        <div className="relative z-20 p-5 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex items-center justify-center gap-4 sm:gap-6">
+        <div className="relative z-20 p-5 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex items-center justify-center gap-3 sm:gap-5">
           {/* Mute Button */}
           <Button
             variant="outline"
@@ -288,6 +311,34 @@ export function ActiveCallModal() {
                 <VideoOff className="h-5 w-5" />
               ) : (
                 <VideoIcon className="h-5 w-5" />
+              )}
+            </Button>
+          )}
+
+          {/* Switch Camera Button (Video Calls only) */}
+          {callType === "video" && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={switchCamera}
+              disabled={isVideoOff || isSwitchingCamera}
+              className={`h-12 w-12 rounded-full cursor-pointer transition-colors shadow-md ${
+                isVideoOff
+                  ? "bg-slate-800/40 border-slate-700/60 text-slate-600 cursor-not-allowed"
+                  : "bg-slate-800/80 border-slate-700 text-white hover:bg-slate-700 active:scale-95"
+              }`}
+              title={
+                isVideoOff
+                  ? "Turn on video to switch camera"
+                  : facingMode === "user"
+                  ? "Switch to back camera"
+                  : "Switch to front camera"
+              }
+            >
+              {isSwitchingCamera ? (
+                <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+              ) : (
+                <SwitchCamera className="h-5 w-5" />
               )}
             </Button>
           )}

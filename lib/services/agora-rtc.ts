@@ -33,6 +33,7 @@ class AgoraRtcService {
   private isJoined = false;
   private currentChannelName = "";
   private currentUid = 0;
+  private currentFacingMode: "user" | "environment" = "user";
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -60,6 +61,10 @@ class AgoraRtcService {
 
   public getIsJoined() {
     return this.isJoined;
+  }
+
+  public getFacingMode(): "user" | "environment" {
+    return this.currentFacingMode;
   }
 
   /**
@@ -274,11 +279,13 @@ class AgoraRtcService {
 
     // 2. Detect camera hardware availability before requesting track
     if (options.callType === "video") {
+      this.currentFacingMode = "user";
       try {
         const cams = await AgoraRTC.getCameras().catch(() => []);
         if (cams && cams.length > 0) {
           try {
             this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+              facingMode: "user",
               encoderConfig: "720p_1",
               optimizationMode: "detail",
             });
@@ -376,6 +383,82 @@ class AgoraRtcService {
   }
 
   /**
+   * Switch camera between front (user) and back (environment),
+   * or cycle through available video input devices.
+   */
+  async switchCamera(): Promise<"user" | "environment"> {
+    const nextFacingMode: "user" | "environment" =
+      this.currentFacingMode === "user" ? "environment" : "user";
+
+    if (!this.localVideoTrack) {
+      this.currentFacingMode = nextFacingMode;
+      return this.currentFacingMode;
+    }
+
+    const AgoraRTCModule = (await import("agora-rtc-sdk-ng")).default;
+
+    // 1. Try switching using setDevice({ facingMode }) (AgoraRTC 4.19+ standard for mobile devices)
+    try {
+      await this.localVideoTrack.setDevice({ facingMode: nextFacingMode } as any);
+      this.currentFacingMode = nextFacingMode;
+      return this.currentFacingMode;
+    } catch (facingErr) {
+      console.warn(
+        "[Agora RTC] setDevice with facingMode failed, trying camera enumeration:",
+        facingErr
+      );
+    }
+
+    // 2. Fallback: cycle through available cameras by deviceId
+    try {
+      const cameras = await AgoraRTCModule.getCameras().catch(() => []);
+      if (cameras && cameras.length > 1) {
+        const currentTrack = this.localVideoTrack.getMediaStreamTrack();
+        const currentDeviceId = currentTrack?.getSettings?.()?.deviceId;
+        const currentIndex = cameras.findIndex((c) => c.deviceId === currentDeviceId);
+        const nextIndex = (currentIndex + 1) % cameras.length;
+        const nextCamera = cameras[nextIndex];
+        if (nextCamera?.deviceId) {
+          await this.localVideoTrack.setDevice(nextCamera.deviceId);
+          this.currentFacingMode = nextFacingMode;
+          return this.currentFacingMode;
+        }
+      }
+    } catch (deviceErr) {
+      console.warn("[Agora RTC] Switching camera by deviceId failed:", deviceErr);
+    }
+
+    // 3. Fallback: Unpublish old track, recreate with nextFacingMode, publish & play
+    if (this.client && this.isJoined) {
+      try {
+        const oldTrack = this.localVideoTrack;
+        await this.client.unpublish([oldTrack]);
+        oldTrack.stop();
+        oldTrack.close();
+
+        this.localVideoTrack = await AgoraRTCModule.createCameraVideoTrack({
+          facingMode: nextFacingMode,
+          encoderConfig: "720p_1",
+          optimizationMode: "detail",
+        });
+
+        await this.client.publish([this.localVideoTrack]);
+        if (this.localVideoElement) {
+          this.localVideoTrack.play(this.localVideoElement, { fit: "cover" });
+        }
+        this.currentFacingMode = nextFacingMode;
+        return this.currentFacingMode;
+      } catch (recreateErr) {
+        console.warn("[Agora RTC] Recreating camera track failed:", recreateErr);
+        throw recreateErr;
+      }
+    }
+
+    this.currentFacingMode = nextFacingMode;
+    return this.currentFacingMode;
+  }
+
+  /**
    * Cleanly leave channel and release camera/microphone hardware
    */
   async leave(): Promise<void> {
@@ -412,6 +495,7 @@ class AgoraRtcService {
       console.warn("Error during Agora RTC leave:", e);
     } finally {
       this.isJoined = false;
+      this.currentFacingMode = "user";
       this.remoteVideoTrack = null;
       this.remoteAudioTrack = null;
       this.localVideoElement = null;

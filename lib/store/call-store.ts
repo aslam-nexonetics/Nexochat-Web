@@ -27,6 +27,8 @@ export interface CallStoreState {
   hasRemoteUser: boolean;
   remoteUid: number | null;
   remoteHasVideo: boolean;
+  facingMode: "user" | "environment";
+  isSwitchingCamera: boolean;
 
   // Actions
   initiateCall: (params: {
@@ -46,6 +48,7 @@ export interface CallStoreState {
   endActiveCall: () => Promise<void>;
   toggleMute: () => void;
   toggleVideo: () => void;
+  switchCamera: () => Promise<void>;
   toggleMinimize: () => void;
   setIsMinimized: (val: boolean) => void;
   setRemoteHasVideo: (val: boolean) => void;
@@ -53,42 +56,6 @@ export interface CallStoreState {
 
 let callTimerInterval: NodeJS.Timeout | null = null;
 let noAnswerTimeout: NodeJS.Timeout | null = null;
-let activeCallPollInterval: NodeJS.Timeout | null = null;
-
-const startCallStatusPolling = (channelName: string) => {
-  if (activeCallPollInterval) clearInterval(activeCallPollInterval);
-  activeCallPollInterval = setInterval(async () => {
-    const state = useCallStore.getState();
-    if ((state.status === "connected" || state.status === "calling") && channelName) {
-      try {
-        const info = await callApi.getCallInfo(channelName);
-        if (info && (info.status === "ended" || info.ended_at)) {
-          console.log("[CallStore] Backend confirmed call has ended");
-          toast.info("Call ended by the other participant");
-          useCallStore.getState().endActiveCall();
-        }
-      } catch (err: any) {
-        if (err?.status === 404) {
-          try {
-            const activeCalls = await callApi.getActiveCalls();
-            const isStillActive = activeCalls.some(
-              (c) =>
-                c.channel_name === channelName ||
-                (state.callId && c.id === state.callId)
-            );
-            if (!isStillActive && (state.status === "connected" || state.status === "calling")) {
-              console.log("[CallStore] Call is no longer in active calls list");
-              toast.info("Call has ended");
-              useCallStore.getState().endActiveCall();
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-    }
-  }, 4000);
-};
 
 const DEFAULT_AGORA_APP_ID =
   process.env.NEXT_PUBLIC_AGORA_APP_ID || "6e2f5d3409d7453589014015a008273e";
@@ -113,6 +80,8 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
   hasRemoteUser: false,
   remoteUid: null,
   remoteHasVideo: false,
+  facingMode: "user",
+  isSwitchingCamera: false,
 
   setRemoteHasVideo: (val: boolean) => set({ remoteHasVideo: val }),
   setIsMinimized: (val: boolean) => set({ isMinimized: val }),
@@ -142,6 +111,8 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       hasRemoteUser: false,
       remoteUid: null,
       remoteHasVideo: false,
+      facingMode: "user",
+      isSwitchingCamera: false,
     });
 
     // Start outgoing ringback audio tone
@@ -239,8 +210,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
             remoteUid,
           });
 
-          startCallStatusPolling(channelName);
-
           if (!callTimerInterval) {
             callTimerInterval = setInterval(() => {
               set((s) => ({ callDuration: s.callDuration + 1 }));
@@ -304,6 +273,8 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       hasRemoteUser: false,
       remoteUid: message.caller_id,
       remoteHasVideo: false,
+      facingMode: "user",
+      isSwitchingCamera: false,
     });
 
     // Start incoming ringtone
@@ -400,8 +371,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         },
       });
 
-      startCallStatusPolling(state.channelName);
-
       // 5. Start call timer
       if (callTimerInterval) clearInterval(callTimerInterval);
       callTimerInterval = setInterval(() => {
@@ -454,10 +423,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     const receiverId = state.otherUserId;
 
     if (noAnswerTimeout) clearTimeout(noAnswerTimeout);
-    if (activeCallPollInterval) {
-      clearInterval(activeCallPollInterval);
-      activeCallPollInterval = null;
-    }
     callSoundService.stopAll();
 
     if (receiverId && callId) {
@@ -477,7 +442,13 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     }
 
     await agoraRtcService.leave();
-    set({ status: "idle", callId: null, channelName: null });
+    set({
+      status: "idle",
+      callId: null,
+      channelName: null,
+      facingMode: "user",
+      isSwitchingCamera: false,
+    });
   },
 
   endActiveCall: async () => {
@@ -490,10 +461,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     if (callTimerInterval) {
       clearInterval(callTimerInterval);
       callTimerInterval = null;
-    }
-    if (activeCallPollInterval) {
-      clearInterval(activeCallPollInterval);
-      activeCallPollInterval = null;
     }
 
     callSoundService.stopAll();
@@ -536,6 +503,8 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       hasRemoteUser: false,
       remoteUid: null,
       remoteHasVideo: false,
+      facingMode: "user",
+      isSwitchingCamera: false,
     });
   },
 
@@ -551,6 +520,27 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     const nextOff = !currentOff;
     agoraRtcService.setVideoEnabled(!nextOff);
     set({ isVideoOff: nextOff });
+  },
+
+  switchCamera: async () => {
+    const { callType, isVideoOff, isSwitchingCamera } = get();
+    if (callType !== "video" || isVideoOff || isSwitchingCamera) return;
+
+    set({ isSwitchingCamera: true });
+    try {
+      const nextMode = await agoraRtcService.switchCamera();
+      set({ facingMode: nextMode });
+      toast.success(
+        nextMode === "environment"
+          ? "Switched to back camera"
+          : "Switched to front camera"
+      );
+    } catch (err: any) {
+      console.warn("[CallStore] Camera switch failed:", err);
+      toast.error("Could not switch camera");
+    } finally {
+      set({ isSwitchingCamera: false });
+    }
   },
 
   toggleMinimize: () => {
@@ -594,7 +584,11 @@ if (typeof window !== "undefined") {
               : "Call declined"
           );
           agoraRtcService.leave();
-          useCallStore.setState({ status: "idle" });
+          useCallStore.setState({
+            status: "idle",
+            facingMode: "user",
+            isSwitchingCamera: false,
+          });
         }
         break;
 
@@ -602,7 +596,11 @@ if (typeof window !== "undefined") {
         if (store.status === "incoming") {
           callSoundService.stopAll();
           toast.info("Caller cancelled the call");
-          useCallStore.setState({ status: "idle" });
+          useCallStore.setState({
+            status: "idle",
+            facingMode: "user",
+            isSwitchingCamera: false,
+          });
         }
         break;
 
@@ -626,6 +624,8 @@ if (typeof window !== "undefined") {
             hasRemoteUser: false,
             remoteUid: null,
             remoteHasVideo: false,
+            facingMode: "user",
+            isSwitchingCamera: false,
           });
         }
         break;
