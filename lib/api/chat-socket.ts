@@ -1,5 +1,5 @@
 /**
- * Real-time WebSocket Client for Nexonetics Collection Chat
+ * Real-time WebSocket Client for NexoChat Collection Chat
  * Matches Flutter's ChatSocketDataSourceImpl
  */
 

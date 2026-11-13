@@ -101,7 +101,7 @@ export default function RegisterPage() {
           Create an Account
         </h1>
         <p className="mt-1.5 text-sm text-slate-500">
-          Join your organization&apos;s workspace on Nexonetics.
+          Join your organization&apos;s workspace on NexoChat.
         </p>
       </div>
 

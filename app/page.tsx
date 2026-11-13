@@ -34,11 +34,11 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
-              <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
+              <img src="/icon-192.png" alt="NexoChat" className="h-full w-full object-contain" />
             </div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-lg text-slate-900 tracking-tight">
-                Nexonetics
+                NexoChat
               </span>
               <span className="hidden sm:inline-flex text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                 Cloud Workspace
@@ -310,11 +310,11 @@ export default function HomePage() {
       <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-800">Nexonetics</span>
+            <span className="font-extrabold text-slate-800">NexoChat</span>
             <span className="text-slate-400">·</span>
             <span>Enterprise Multi-Tenant Workspace</span>
           </div>
-          <p>© 2026 Nexonetics Inc. All rights reserved.</p>
+          <p>© 2026 NexoChat. All rights reserved.</p>
         </div>
       </footer>
     </div>

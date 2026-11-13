@@ -98,7 +98,7 @@ export default function LoginPage() {
           Sign In
         </h1>
         <p className="mt-1.5 text-sm text-slate-500">
-          Enter your credentials to access your Nexonetics workspace.
+          Enter your credentials to access your NexoChat workspace.
         </p>
       </div>
 

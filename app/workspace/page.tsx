@@ -141,12 +141,12 @@ export default function NexoHomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
-              N
+            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
+              <img src="/icon-192.png" alt="NexoChat" className="h-full w-full object-contain" />
             </div>
             <div>
               <span className="font-extrabold text-base text-slate-900 tracking-tight">
-                Nexo Home
+                NexoChat
               </span>
               <span className="hidden sm:inline-block ml-2 text-[11px] font-medium text-slate-500">
                 Workspace Platform

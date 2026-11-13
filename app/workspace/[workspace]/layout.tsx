@@ -117,13 +117,13 @@ export default function CollectionWorkspaceLayout({
               <TooltipTrigger asChild>
                 <Link
                   href="/workspace"
-                  className="h-10 w-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center font-extrabold text-base shadow-xs transition-colors"
+                  className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-xs hover:border-indigo-500 transition-colors overflow-hidden"
                 >
-                  N
+                  <img src="/icon-192.png" alt="NexoChat" className="h-full w-full object-contain" />
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" className="font-semibold">
-                Nexonetics Home (All Collections)
+                NexoChat Home (All Collections)
               </TooltipContent>
             </Tooltip>
 

@@ -1,5 +1,5 @@
 /**
- * Typed API Client for Nexonetics Cloud Web
+ * Typed API Client for NexoChat Cloud Web
  *
  * Uses the Next.js Route Handler Proxy (/api/proxy) to securely attach
  * httpOnly Bearer tokens without exposing JWTs to client-side JavaScript.

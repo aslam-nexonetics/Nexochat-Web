@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Nexonetics Workspace",
-    template: "%s | Nexonetics",
+    default: "NexoChat",
+    template: "%s | NexoChat",
   },
   description:
     "Enterprise Multi-Tenant Communication, Jobs, GIG Services, and Real-Time Collaboration Platform",

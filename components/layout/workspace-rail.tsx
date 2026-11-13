@@ -54,10 +54,10 @@ export function WorkspaceRail() {
               href="/workspace"
               className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-xs hover:border-indigo-500 hover:shadow-indigo-500/10 transition-all mb-2 overflow-hidden p-1.5"
             >
-              <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
+              <img src="/icon-192.png" alt="NexoChat" className="h-full w-full object-contain" />
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Nexonetics Home</TooltipContent>
+          <TooltipContent side="right">NexoChat Home</TooltipContent>
         </Tooltip>
 
         <div className="w-8 h-px bg-slate-200 dark:bg-slate-800 my-1" />

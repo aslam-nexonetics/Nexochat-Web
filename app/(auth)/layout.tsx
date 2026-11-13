@@ -17,11 +17,11 @@ export default function AuthLayout({
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center gap-3 group">
             <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-sm group-hover:border-indigo-500 transition-colors overflow-hidden">
-              <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
+              <img src="/icon-192.png" alt="NexoChat" className="h-full w-full object-contain" />
             </div>
             <div>
               <span className="font-bold text-xl text-slate-900 tracking-tight">
-                Nexonetics
+                NexoChat
               </span>
               <span className="block text-xs text-slate-500 font-medium">
                 Cloud Enterprise Workspace
@@ -117,10 +117,10 @@ export default function AuthLayout({
           <div className="lg:hidden flex justify-center mb-8">
             <Link href="/" className="inline-flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-sm overflow-hidden">
-                <img src="/icon-192.png" alt="Nexonetics" className="h-full w-full object-contain" />
+                <img src="/icon-192.png" alt="NexoChat" className="h-full w-full object-contain" />
               </div>
               <span className="font-bold text-xl text-slate-900 tracking-tight">
-                Nexonetics
+                NexoChat
               </span>
             </Link>
           </div>
