@@ -79,6 +79,25 @@ export const gigApi = {
     }
   },
 
+  async getSpecializationSuggestions(query = ""): Promise<string[]> {
+    try {
+      const res = await apiClient.get<any>(
+        `/jobs/GIG/suggestions/specializations?q=${encodeURIComponent(query)}`
+      );
+      const data = res?.data ?? res;
+      if (Array.isArray(data)) {
+        return data.filter((item: any): item is string => typeof item === "string");
+      }
+      if (Array.isArray(data?.specializations)) {
+        return data.specializations.filter((item: any): item is string => typeof item === "string");
+      }
+      return [];
+    } catch (err) {
+      console.warn("[gigApi.getSpecializationSuggestions] Error:", err);
+      return [];
+    }
+  },
+
   async fetchBotQuestions(specialization: string): Promise<any> {
     try {
       const res = await apiClient.get<any>(

@@ -125,7 +125,7 @@ class AgoraRtcService {
     this.currentUid = options.uid;
 
     const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-    AgoraRTC.setLogLevel(2); // Set to WARNING in production
+    AgoraRTC.setLogLevel(4); // Turn off internal SDK logs (prevents DEVICE_NOT_FOUND spam)
 
     this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
@@ -240,30 +240,49 @@ class AgoraRtcService {
     );
     this.isJoined = true;
 
-    // Create local tracks with production-grade AEC, ANS, AGC and fallback
     const tracksToPublish: (IMicrophoneAudioTrack | ICameraVideoTrack)[] = [];
 
-    // 1. Microphone track (acquire directly so mobile browsers prompt for permission)
-    try {
-      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig: "speech_standard",
-        AEC: true,
-        ANS: true,
-        AGC: true,
-      });
-      tracksToPublish.push(this.localAudioTrack);
-    } catch (advancedErr: any) {
-      console.warn("[Agora RTC] Advanced mic acquisition failed, attempting fallback:", advancedErr?.message || advancedErr);
+    // Check available media devices to avoid triggering DEVICE_NOT_FOUND errors on systems without webcam/mic
+    let hasAudioDevice = true;
+    let hasVideoDevice = true;
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
       try {
-        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        tracksToPublish.push(this.localAudioTrack);
-      } catch (basicErr: any) {
-        console.warn("[Agora RTC] Microphone acquisition error:", basicErr?.message || basicErr);
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter((d) => d.kind === "audioinput");
+        const videoInputs = devices.filter((d) => d.kind === "videoinput");
+        if (devices.length > 0) {
+          hasAudioDevice = audioInputs.length > 0;
+          hasVideoDevice = videoInputs.length > 0;
+        }
+      } catch {
+        // Fallback: proceed to attempt track creation
       }
     }
 
-    // 2. Camera video track for video calls (acquire directly with facingMode: "user")
-    if (options.callType === "video") {
+    // 1. Microphone track (acquire directly if microphone device is present)
+    if (hasAudioDevice) {
+      try {
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: "speech_standard",
+          AEC: true,
+          ANS: true,
+          AGC: true,
+        });
+        tracksToPublish.push(this.localAudioTrack);
+      } catch (advancedErr: any) {
+        try {
+          this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          tracksToPublish.push(this.localAudioTrack);
+        } catch (basicErr: any) {
+          console.warn("[Agora RTC] Microphone unavailable or permission denied:", basicErr?.message || basicErr);
+        }
+      }
+    } else {
+      console.info("[Agora RTC] No audio input devices detected on this machine.");
+    }
+
+    // 2. Camera video track for video calls (acquire directly with facingMode: "user" if camera device is present)
+    if (options.callType === "video" && hasVideoDevice) {
       this.currentFacingMode = "user";
       try {
         this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
@@ -295,8 +314,10 @@ class AgoraRtcService {
           }
         }
       } catch (err: any) {
-        console.warn("[Agora RTC] Camera acquisition error:", err?.message || err);
+        console.warn("[Agora RTC] Camera unavailable or permission denied:", err?.message || err);
       }
+    } else if (options.callType === "video" && !hasVideoDevice) {
+      console.info("[Agora RTC] No video input devices detected on this machine.");
     }
 
     if (tracksToPublish.length > 0 && this.client) {

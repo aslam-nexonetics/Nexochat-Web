@@ -46,60 +46,103 @@ import { GigProvider, GigBotReply, GigReview } from "@/lib/types/gig";
 import { GigBotKnowledgeEngine } from "@/lib/api/gig-bot";
 import { toast } from "sonner";
 
-// 6 Core Categories exactly as in Flutter GigHomeScreen._categories
-const CATEGORIES = [
-  {
-    id: "Electrician",
-    name: "Electrician",
+const DEFAULT_CATEGORY_METAS: Record<string, { icon: any; bg: string; color: string; description: string }> = {
+  electrician: {
     icon: Zap,
     bg: "bg-rose-50 border-rose-100",
     color: "text-rose-600",
     description: "Wiring, circuit boards, inverters & emergency repair",
   },
-  {
-    id: "Plumber",
-    name: "Plumber",
+  plumber: {
     icon: Wrench,
     bg: "bg-sky-50 border-sky-100",
     color: "text-sky-600",
     description: "Pipes, leakage detection, sanitaryware & pumps",
   },
-  {
-    id: "AC Service",
-    name: "AC Service",
+  "ac service": {
     icon: Sparkles,
     bg: "bg-cyan-50 border-cyan-100",
     color: "text-cyan-600",
     description: "HVAC cooling tuneup, gas refilling & compressor fix",
   },
-  {
-    id: "Cleaning",
-    name: "Cleaning",
+  "ac repair": {
+    icon: Sparkles,
+    bg: "bg-cyan-50 border-cyan-100",
+    color: "text-cyan-600",
+    description: "HVAC cooling tuneup, gas refilling & compressor fix",
+  },
+  cleaning: {
     icon: CheckCircle2,
     bg: "bg-emerald-50 border-emerald-100",
     color: "text-emerald-600",
     description: "Full home sanitization, kitchen & bathroom deep clean",
   },
-  {
-    id: "Carpenter",
-    name: "Carpenter",
+  "house cleaning": {
+    icon: CheckCircle2,
+    bg: "bg-emerald-50 border-emerald-100",
+    color: "text-emerald-600",
+    description: "Full home sanitization, kitchen & bathroom deep clean",
+  },
+  carpenter: {
     icon: Wrench,
     bg: "bg-amber-50 border-amber-100",
     color: "text-amber-600",
     description: "Furniture repair, modular woodwork & lock installation",
   },
-  {
-    id: "Appliances",
-    name: "Appliances",
+  appliances: {
     icon: Clock,
     bg: "bg-indigo-50 border-indigo-100",
     color: "text-indigo-600",
     description: "Washing machine, refrigerator & microwave repair",
   },
-];
+  "appliance repair": {
+    icon: Clock,
+    bg: "bg-indigo-50 border-indigo-100",
+    color: "text-indigo-600",
+    description: "Washing machine, refrigerator & microwave repair",
+  },
+  painter: {
+    icon: Sparkles,
+    bg: "bg-purple-50 border-purple-100",
+    color: "text-purple-600",
+    description: "Interior & exterior wall painting and waterproofing",
+  },
+  "carpet cleaner": {
+    icon: CheckCircle2,
+    bg: "bg-teal-50 border-teal-100",
+    color: "text-teal-600",
+    description: "Carpet shampooing, vacuuming & stain removal",
+  },
+  "car washer": {
+    icon: Sparkles,
+    bg: "bg-blue-50 border-blue-100",
+    color: "text-blue-600",
+    description: "On-demand doorstep vehicle wash and detailing",
+  },
+  other: {
+    icon: Wrench,
+    bg: "bg-slate-50 border-slate-200",
+    color: "text-slate-600",
+    description: "Specify any custom trade, repair, or specialty service",
+  },
+};
 
-const FILTER_CHIPS = [
-  "All",
+function getCategoryMeta(catName: string) {
+  const key = catName.trim().toLowerCase();
+  for (const [k, meta] of Object.entries(DEFAULT_CATEGORY_METAS)) {
+    if (key.includes(k) || k.includes(key)) {
+      return meta;
+    }
+  }
+  return {
+    icon: Wrench,
+    bg: "bg-emerald-50 border-emerald-100",
+    color: "text-emerald-600",
+    description: `${catName} services, inspection & maintenance`,
+  };
+}
+
+const INITIAL_CATEGORIES = [
   "Electrician",
   "Plumber",
   "AC Service",
@@ -125,6 +168,74 @@ export default function WorkspaceGigsPage() {
   // Navigation flow: Screen 1 = categories, Screen 2 = results
   const [currentScreen, setCurrentScreen] = React.useState<"categories" | "results">("categories");
 
+  // Dynamic Categories from Backend
+  const [categories, setCategories] = React.useState<Array<{
+    id: string;
+    name: string;
+    icon: any;
+    bg: string;
+    color: string;
+    description: string;
+  }>>(() =>
+    INITIAL_CATEGORIES.map((name) => {
+      const meta = getCategoryMeta(name);
+      return {
+        id: name,
+        name,
+        icon: meta.icon,
+        bg: meta.bg,
+        color: meta.color,
+        description: meta.description,
+      };
+    }).concat({
+      id: "Other",
+      name: "Other",
+      icon: Wrench,
+      bg: "bg-slate-50 border-slate-200",
+      color: "text-slate-600",
+      description: "Specify any custom trade, repair, or specialty service",
+    })
+  );
+  const [filterChips, setFilterChips] = React.useState<string[]>([
+    "All",
+    ...INITIAL_CATEGORIES,
+    "Other",
+  ]);
+  const [isOtherModalOpen, setIsOtherModalOpen] = React.useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = React.useState("");
+
+  // Fetch backend categories on mount
+  React.useEffect(() => {
+    let isMounted = true;
+    gigApi.getSpecializationSuggestions().then((items) => {
+      if (!isMounted || !items || items.length === 0) return;
+      const mapped = items.map((name) => {
+        const meta = getCategoryMeta(name);
+        return {
+          id: name,
+          name,
+          icon: meta.icon,
+          bg: meta.bg,
+          color: meta.color,
+          description: meta.description,
+        };
+      });
+      mapped.push({
+        id: "Other",
+        name: "Other",
+        icon: Wrench,
+        bg: "bg-slate-50 border-slate-200",
+        color: "text-slate-600",
+        description: "Specify any custom trade, repair, or specialty service",
+      });
+      setCategories(mapped);
+      setFilterChips(["All", ...items, "Other"]);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Providers fetched strictly from backend (NO dummy seed data)
   const [providers, setProviders] = React.useState<GigProvider[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = React.useState(false);
@@ -146,7 +257,6 @@ export default function WorkspaceGigsPage() {
   const [detailProvider, setDetailProvider] = React.useState<GigProvider | null>(null);
   const [providerReviews, setProviderReviews] = React.useState<GigReview[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = React.useState(false);
-
 
   // Booking Modal State
   const [bookingProvider, setBookingProvider] = React.useState<GigProvider | null>(null);
@@ -228,9 +338,30 @@ export default function WorkspaceGigsPage() {
 
   // Handle Category Click from Screen 1 (Categories)
   const handleSelectCategory = (catName: string) => {
+    if (catName === "Other") {
+      setCustomCategoryInput("");
+      setIsOtherModalOpen(true);
+      return;
+    }
     setSelectedCategory(catName);
     setCurrentScreen("results");
     loadProviders(catName);
+  };
+
+  const handleCustomCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customCategoryInput.trim()) return;
+    const cat = customCategoryInput.trim();
+    setIsOtherModalOpen(false);
+    setSelectedCategory(cat);
+    if (!filterChips.includes(cat)) {
+      setFilterChips((prev) => {
+        const withoutOther = prev.filter((c) => c !== "Other");
+        return [...withoutOther, cat, "Other"];
+      });
+    }
+    setCurrentScreen("results");
+    loadProviders(cat);
   };
 
   // Handle "Browse All" / "View All"
@@ -531,7 +662,7 @@ export default function WorkspaceGigsPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-              {CATEGORIES.map((cat) => {
+              {categories.map((cat) => {
                 const Icon = cat.icon;
                 return (
                   <button
@@ -673,7 +804,7 @@ export default function WorkspaceGigsPage() {
           <div className="space-y-3">
             {/* Category horizontal pills */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
-              {FILTER_CHIPS.map((chip) => {
+              {filterChips.map((chip) => {
                 const isSelected =
                   (selectedCategory.toLowerCase() === chip.toLowerCase()) ||
                   (!selectedCategory && chip === "All");
@@ -682,6 +813,11 @@ export default function WorkspaceGigsPage() {
                     key={chip}
                     type="button"
                     onClick={() => {
+                      if (chip === "Other") {
+                        setCustomCategoryInput("");
+                        setIsOtherModalOpen(true);
+                        return;
+                      }
                       const next = chip === "All" ? "All" : chip;
                       setSelectedCategory(next);
                       loadProviders(next === "All" ? undefined : next);
@@ -1129,6 +1265,56 @@ export default function WorkspaceGigsPage() {
               Apply Location
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* 5. CUSTOM / "OTHER" SERVICE CATEGORY DIALOG                                */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      <Dialog open={isOtherModalOpen} onOpenChange={setIsOtherModalOpen}>
+        <DialogContent className="sm:max-w-sm bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold text-slate-900">
+              Find Specialized Service
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Specify the trade or skill you need (e.g. Pest Control, Roofing, Masonry, Solar).
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCustomCategorySubmit} className="space-y-3 pt-2">
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Custom Service / Trade Name
+              </label>
+              <input
+                type="text"
+                autoFocus
+                required
+                value={customCategoryInput}
+                onChange={(e) => setCustomCategoryInput(e.target.value)}
+                placeholder="e.g. Pest Control, Solar Panel"
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-emerald-600"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOtherModalOpen(false)}
+                className="h-9 rounded-xl border-slate-200 text-xs font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+              >
+                Search Providers
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

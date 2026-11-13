@@ -1935,6 +1935,19 @@ function GigProviderProfileView({
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
   const [category, setCategory] = React.useState("Electrician");
+  const [specializationOptions, setSpecializationOptions] = React.useState<string[]>([
+    "Electrician",
+    "Plumber",
+    "AC Service",
+    "AC Repair",
+    "Appliance Repair",
+    "Painter",
+    "Carpenter",
+    "House Cleaning",
+    "Carpet Cleaner",
+    "Car Washer",
+  ]);
+  const [customCategory, setCustomCategory] = React.useState("");
   const [city, setCity] = React.useState("Kochi");
   const [area, setArea] = React.useState("Kaloor");
   const [workingRadius, setWorkingRadius] = React.useState("15");
@@ -1942,6 +1955,15 @@ function GigProviderProfileView({
   const [bio, setBio] = React.useState("");
   const [isAvailableNow, setIsAvailableNow] = React.useState(true);
   const [isUpdatingAvailability, setIsUpdatingAvailability] = React.useState(false);
+
+  // Fetch dynamic specialization suggestions from backend
+  React.useEffect(() => {
+    gigApi.getSpecializationSuggestions().then((items) => {
+      if (items && items.length > 0) {
+        setSpecializationOptions(items);
+      }
+    });
+  }, []);
 
   // KYC Verification fields
   const [idType, setIdType] = React.useState("Aadhaar Card");
@@ -2016,7 +2038,10 @@ function GigProviderProfileView({
         setIsEditing(false); // Display View Mode when already saved!
         setFirstName(data.firstName);
         setLastName(data.lastName);
-        setCategory(data.specialization);
+        if (data.specialization) {
+          setCategory(data.specialization);
+          setCustomCategory("");
+        }
         setCity(data.city);
         setArea(data.area);
         setWorkingRadius(String(data.workingRadius || 15));
@@ -2070,12 +2095,14 @@ function GigProviderProfileView({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    const effectiveSpecialization =
+      (category === "Other" ? customCategory.trim() : category) || "Electrician";
     try {
       if (provider) {
         const updated = await gigApi.updateProvider({
           firstName,
           lastName,
-          specialization: category,
+          specialization: effectiveSpecialization,
           bio,
           city,
           area,
@@ -2089,7 +2116,7 @@ function GigProviderProfileView({
         const created = await gigApi.registerProvider({
           firstName,
           lastName,
-          specialization: category,
+          specialization: effectiveSpecialization,
           bio,
           city,
           area,
@@ -2137,26 +2164,117 @@ function GigProviderProfileView({
     }
   };
 
+  // Helper to normalize bot answers safely
+  const normalizeBotAnswers = (raw: any): Record<number, string[]> => {
+    const result: Record<number, string[]> = {};
+    if (!raw) return result;
+
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (!item) continue;
+        const step = Number(item.step ?? item.question_id ?? item.id);
+        if (!isNaN(step) && step > 0) {
+          if (Array.isArray(item.selected_options)) {
+            result[step] = item.selected_options.map(String);
+          } else if (Array.isArray(item.options)) {
+            result[step] = item.options.map(String);
+          } else if (Array.isArray(item.answers)) {
+            result[step] = item.answers.map(String);
+          } else if (typeof item.answer === "string") {
+            result[step] = [item.answer];
+          } else if (typeof item.selected_option === "string") {
+            result[step] = [item.selected_option];
+          } else if (item.answer && typeof item.answer === "object") {
+            result[step] = Object.values(item.answer).map(String);
+          }
+        }
+      }
+      return result;
+    }
+
+    if (typeof raw === "object") {
+      for (const [key, val] of Object.entries(raw)) {
+        const step = Number(key);
+        if (isNaN(step) || step <= 0) continue;
+        if (Array.isArray(val)) {
+          result[step] = val.map((v) =>
+            typeof v === "object" && v ? (v.title || v.name || JSON.stringify(v)) : String(v)
+          );
+        } else if (typeof val === "string") {
+          result[step] = [val];
+        } else if (val && typeof val === "object") {
+          const vAny = val as any;
+          if (Array.isArray(vAny.selected_options)) {
+            result[step] = vAny.selected_options.map(String);
+          } else if (Array.isArray(vAny.options)) {
+            result[step] = vAny.options.map(String);
+          } else if (typeof vAny.answer === "string") {
+            result[step] = [vAny.answer];
+          } else if (typeof vAny.text === "string") {
+            result[step] = [vAny.text];
+          } else {
+            result[step] = Object.values(vAny).filter((x) => typeof x === "string") as string[];
+          }
+        }
+      }
+    }
+    return result;
+  };
+
   // Bot Wizard Handlers
-  const handleOpenBotWizard = () => {
-    const spec = category || provider?.specialization || "Electrician";
+  const handleOpenBotWizard = async () => {
+    const spec =
+      (category === "Other" ? customCategory.trim() : category) ||
+      provider?.specialization ||
+      "Electrician";
     const pName =
       `${firstName || provider?.firstName || ""} ${lastName || provider?.lastName || ""}`.trim() ||
       provider?.fullName ||
       "Provider";
-    const questions = GigBoatQuestionsService.getQuestionsForSpecialization(spec, pName);
+
+    let questions = GigBoatQuestionsService.getQuestionsForSpecialization(spec, pName);
+
+    try {
+      const data = await gigApi.fetchBotQuestions(spec);
+      const rawQuestions =
+        data?.questions ||
+        (Array.isArray(data) ? data : data?.data?.questions || data?.data);
+      if (Array.isArray(rawQuestions) && rawQuestions.length > 0) {
+        questions = rawQuestions.map((q: any, idx: number) => ({
+          step: Number(q.step ?? idx + 1),
+          specialization: q.specialization || spec,
+          question: q.question || `Step ${idx + 1}`,
+          subtitle: q.subtitle || "",
+          isMultiSelect: q.is_multi_select ?? q.isMultiSelect ?? true,
+          hasOtherSpecify: q.has_other_specify ?? q.hasOtherSpecify ?? true,
+          options: (q.options || []).map((o: any, oIdx: number) => ({
+            id: String(o.id ?? `opt_${idx}_${oIdx}`),
+            title: typeof o === "string" ? o : o.title || o.name || "",
+            subtitle: typeof o === "object" ? o.subtitle : undefined,
+          })),
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not fetch backend bot questions, using defaults:", e);
+    }
+
     setWizardQuestions(questions);
     setWizardStep(1);
 
-    if (botConfig?.answers) {
-      setSelectedAnswers(botConfig.answers);
-      setCustomNotes(botConfig.customSpecifications || {});
-      setCustomNoteInput(botConfig.customSpecifications?.[1] || "");
+    const safeAnswers = normalizeBotAnswers(botConfig?.answers);
+    const safeSpecs = botConfig?.customSpecifications || {};
+
+    if (Object.keys(safeAnswers).length > 0) {
+      setSelectedAnswers(safeAnswers);
+      setCustomNotes(safeSpecs);
+      setCustomNoteInput(safeSpecs[1] || "");
     } else {
       if (questions.length > 0 && questions[0].options.length > 0) {
         setSelectedAnswers({
           1: [questions[0].options[0].title, questions[0].options[1]?.title].filter(Boolean),
         });
+      } else {
+        setSelectedAnswers({});
       }
       setCustomNoteInput("");
     }
@@ -2168,7 +2286,9 @@ function GigProviderProfileView({
   const handleToggleWizardOption = (optionTitle: string) => {
     if (!currentWizardQuestion) return;
     const isMulti = currentWizardQuestion.isMultiSelect;
-    const current = selectedAnswers[wizardStep] || [];
+    const current = Array.isArray(selectedAnswers[wizardStep])
+      ? selectedAnswers[wizardStep]
+      : [];
 
     if (isMulti) {
       const updated = current.includes(optionTitle)
@@ -2181,8 +2301,10 @@ function GigProviderProfileView({
   };
 
   const handleNextWizardStep = async () => {
-    const current = selectedAnswers[wizardStep] || [];
-    if (current.length === 0) {
+    const current = Array.isArray(selectedAnswers[wizardStep])
+      ? selectedAnswers[wizardStep]
+      : [];
+    if (current.length === 0 && !customNoteInput.trim()) {
       toast.error("Please select at least one option to continue.");
       return;
     }
@@ -2216,7 +2338,10 @@ function GigProviderProfileView({
       `${firstName || provider?.firstName || ""} ${lastName || provider?.lastName || ""}`.trim() ||
       provider?.fullName ||
       "Provider";
-    const spec = category || provider?.specialization || "Electrician";
+    const spec =
+      (category === "Other" ? customCategory.trim() : category) ||
+      provider?.specialization ||
+      "Electrician";
     const pId = provider?.id || 12;
 
     const botName = `${firstName || provider?.firstName || "Provider"}'s ${spec} Assistant`;
@@ -2247,7 +2372,7 @@ function GigProviderProfileView({
     // 2. Sync to backend
     const answersPayload = wizardQuestions.map((q) => ({
       step: q.step,
-      selected_options: selectedAnswers[q.step] || [],
+      selected_options: Array.isArray(selectedAnswers[q.step]) ? selectedAnswers[q.step] : [],
       custom_specification: customNotes[q.step] || undefined,
     }));
 
@@ -3056,17 +3181,51 @@ function GigProviderProfileView({
                   Primary Skill Specialization *
                 </label>
                 <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  value={
+                    specializationOptions.includes(category)
+                      ? category
+                      : "Other"
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Other") {
+                      setCategory("Other");
+                      if (specializationOptions.includes(category)) {
+                        setCustomCategory("");
+                      }
+                    } else {
+                      setCategory(val);
+                      setCustomCategory("");
+                    }
+                  }}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                 >
-                  <option value="Electrician">Electrician & Wiring</option>
-                  <option value="Plumber">Plumbing & Sanitary</option>
-                  <option value="AC Service">AC Service & Maintenance</option>
-                  <option value="Carpentry">Carpentry & Woodwork</option>
-                  <option value="Appliances">Home Appliance Repair</option>
-                  <option value="Cleaning">Deep Cleaning Services</option>
+                  {specializationOptions.map((spec) => (
+                    <option key={spec} value={spec}>
+                      {spec}
+                    </option>
+                  ))}
+                  <option value="Other">Other / Custom Trade</option>
                 </select>
+
+                {(category === "Other" || !specializationOptions.includes(category)) && (
+                  <div className="mt-2">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Specify Custom Trade / Skill Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Masonry, Welding, Solar Technician"
+                      value={category === "Other" ? customCategory : (customCategory || category)}
+                      onChange={(e) => {
+                        setCategory("Other");
+                        setCustomCategory(e.target.value);
+                      }}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -3242,7 +3401,10 @@ function GigProviderProfileView({
           {/* Question Options */}
           <div className="py-4 space-y-2.5">
             {(currentWizardQuestion?.options || []).map((opt) => {
-              const isSelected = (selectedAnswers[wizardStep] || []).includes(opt.title);
+              const currentList = Array.isArray(selectedAnswers[wizardStep])
+                ? selectedAnswers[wizardStep]
+                : [];
+              const isSelected = currentList.includes(opt.title);
               return (
                 <button
                   key={opt.id}
@@ -3267,6 +3429,32 @@ function GigProviderProfileView({
                 </button>
               );
             })}
+
+            {/* Optional "Other (Please specify)" option */}
+            {currentWizardQuestion?.hasOtherSpecify && (
+              <button
+                type="button"
+                onClick={() => handleToggleWizardOption("Other")}
+                className={`w-full p-3.5 rounded-2xl border text-left text-xs transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                  (Array.isArray(selectedAnswers[wizardStep]) ? selectedAnswers[wizardStep] : []).includes("Other")
+                    ? "bg-emerald-50/70 border-emerald-300 text-slate-900 font-bold shadow-2xs"
+                    : "bg-slate-50/60 border-slate-200 text-slate-700 hover:bg-slate-100 font-medium"
+                }`}
+              >
+                <span>Other (Please specify)</span>
+                <div
+                  className={`h-5 w-5 rounded-lg border flex items-center justify-center shrink-0 ${
+                    (Array.isArray(selectedAnswers[wizardStep]) ? selectedAnswers[wizardStep] : []).includes("Other")
+                      ? "bg-emerald-600 border-emerald-600 text-white"
+                      : "border-slate-300 bg-white"
+                  }`}
+                >
+                  {(Array.isArray(selectedAnswers[wizardStep]) ? selectedAnswers[wizardStep] : []).includes("Other") && (
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  )}
+                </div>
+              </button>
+            )}
 
             {/* Optional Custom Note for this step */}
             <div className="pt-2">

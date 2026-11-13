@@ -85,17 +85,27 @@ export class GigBotKnowledgeEngine {
     const spec = specialization || "Service Specialist";
     const loc = [location?.area, location?.city].filter(Boolean).join(", ") || "your local area";
 
+    const toArray = (val: any): string[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.map(String);
+      if (typeof val === "string") return [val];
+      if (typeof val === "object") {
+        return Object.values(val).filter((x) => typeof x === "string") as string[];
+      }
+      return [String(val)];
+    };
+
     // Extract questionnaire configured answers (matching Flutter GigBoatConfig getters)
-    const selectedServices = answers?.[1] || [];
-    const emergencyAvailability = answers?.[2]?.[0];
-    const visitFee = answers?.[3]?.[0];
-    const workingHours = answers?.[4]?.[0];
-    const coverageArea = answers?.[5]?.[0];
-    const materialPolicy = answers?.[6]?.[0];
-    const warrantyPeriod = answers?.[7]?.[0];
-    const extraServices = answers?.[8] || [];
-    const paymentMethods = answers?.[9]?.[0];
-    const safetyAdvice = answers?.[10] || [];
+    const selectedServices = toArray(answers?.[1]);
+    const emergencyAvailability = toArray(answers?.[2])[0];
+    const visitFee = toArray(answers?.[3])[0];
+    const workingHours = toArray(answers?.[4])[0];
+    const coverageArea = toArray(answers?.[5])[0];
+    const materialPolicy = toArray(answers?.[6])[0];
+    const warrantyPeriod = toArray(answers?.[7])[0];
+    const extraServices = toArray(answers?.[8]);
+    const paymentMethods = toArray(answers?.[9])[0];
+    const safetyAdvice = toArray(answers?.[10]);
 
     // 1. Appointment Booking Intent
     if (
@@ -274,6 +284,7 @@ export interface GigBoatQuestion {
   question: string;
   subtitle: string;
   isMultiSelect: boolean;
+  hasOtherSpecify?: boolean;
   options: GigBoatOption[];
 }
 
