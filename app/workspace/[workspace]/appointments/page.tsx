@@ -91,6 +91,15 @@ export default function WorkspaceGigAppointmentsPage() {
   // Loyalty Points Wallet state
   const [pointsWallet, setPointsWallet] = React.useState<GigPointsWallet | null>(null);
   const [showPointsModal, setShowPointsModal] = React.useState(false);
+  const [serviceCategories, setServiceCategories] = React.useState<string[]>(QUICK_SERVICE_CATEGORIES);
+
+  React.useEffect(() => {
+    gigApi.getSpecializationSuggestions().then((items) => {
+      if (items && items.length > 0) {
+        setServiceCategories(items);
+      }
+    });
+  }, []);
 
   // Book Visit Dialog
   const [isBookModalOpen, setIsBookModalOpen] = React.useState(false);
@@ -1171,7 +1180,7 @@ export default function WorkspaceGigAppointmentsPage() {
                 }}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
               >
-                {QUICK_SERVICE_CATEGORIES.map((cat) => (
+                {serviceCategories.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>

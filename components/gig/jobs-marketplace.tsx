@@ -61,6 +61,17 @@ export function GigJobsMarketplaceView() {
 
   // Post Job Dialog
   const [isPostOpen, setIsPostOpen] = React.useState(false);
+  const [categories, setCategories] = React.useState<string[]>([
+    "Electrician",
+    "Plumber",
+    "AC Service",
+    "Cleaning",
+    "Carpenter",
+    "Appliances",
+    "Painter",
+    "Pest Control",
+  ]);
+  const [customCategory, setCustomCategory] = React.useState("");
   const [postForm, setPostForm] = React.useState({
     title: "",
     category: "Electrician",
@@ -70,6 +81,14 @@ export function GigJobsMarketplaceView() {
     budget: 500,
   });
   const [isPosting, setIsPosting] = React.useState(false);
+
+  React.useEffect(() => {
+    gigApi.getSpecializationSuggestions().then((items) => {
+      if (items && items.length > 0) {
+        setCategories(items);
+      }
+    });
+  }, []);
 
   // Bid / Proposal Dialog (Provider bidding on client's job)
   const [biddingJob, setBiddingJob] = React.useState<GigJob | null>(null);
@@ -160,7 +179,7 @@ export function GigJobsMarketplaceView() {
     try {
       const created = await gigApi.postJob({
         title: postForm.title,
-        category: postForm.category,
+        category: postForm.category === "Other" ? (customCategory.trim() || "General") : postForm.category,
         description: postForm.description,
         city: postForm.city,
         area: postForm.area,
@@ -170,9 +189,10 @@ export function GigJobsMarketplaceView() {
       if (created) {
         toast.success("Job request posted! Verified providers will submit bids shortly.");
         setIsPostOpen(false);
+        setCustomCategory("");
         setPostForm({
           title: "",
-          category: "Electrician",
+          category: categories[0] || "Electrician",
           description: "",
           city: "Kochi",
           area: "Kaloor",
@@ -759,14 +779,23 @@ export function GigJobsMarketplaceView() {
                   onChange={(e) => setPostForm({ ...postForm, category: e.target.value })}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
                 >
-                  <option value="Electrician">Electrician</option>
-                  <option value="Plumber">Plumbing</option>
-                  <option value="AC Service">AC & HVAC</option>
-                  <option value="Cleaning">Deep Cleaning</option>
-                  <option value="Carpenter">Carpentry</option>
-                  <option value="Appliances">Appliances</option>
-                  <option value="Painter">Painting</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                  <option value="Other">Other / Custom</option>
                 </select>
+                {postForm.category === "Other" && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter custom category"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className="mt-2 w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                )}
               </div>
 
               <div>

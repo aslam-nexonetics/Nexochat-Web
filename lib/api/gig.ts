@@ -79,10 +79,10 @@ export const gigApi = {
     }
   },
 
-  async getSpecializationSuggestions(query = ""): Promise<string[]> {
+  async getSpecializationSuggestions(query = "", limit = 50): Promise<string[]> {
     try {
       const res = await apiClient.get<any>(
-        `/jobs/GIG/suggestions/specializations?q=${encodeURIComponent(query)}`
+        `/jobs/GIG/suggestions/specializations?q=${encodeURIComponent(query)}&limit=${limit}`
       );
       const data = res?.data ?? res;
       if (Array.isArray(data)) {
