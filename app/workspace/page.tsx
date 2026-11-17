@@ -285,7 +285,7 @@ export default function NexoHomePage() {
 
       {/* 3. Discover & Join Collection Modal */}
       <Dialog open={isJoinModalOpen} onOpenChange={setIsJoinModalOpen}>
-        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-6 rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold mb-2 border border-indigo-200 w-fit">
               <Sparkles className="h-3 w-3" />

@@ -1182,7 +1182,7 @@ export default function WorkspaceGigsPage() {
       {/* 2. DIRECT APPOINTMENT BOOKING MODAL                                       */}
       {/* ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={!!bookingProvider} onOpenChange={(open) => !open && setBookingProvider(null)}>
-        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-6 rounded-3xl shadow-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold text-slate-900">
               Schedule Service Appointment
@@ -1302,7 +1302,7 @@ export default function WorkspaceGigsPage() {
       {/* 3. PROVIDER DOSSIER & REVIEWS MODAL                                        */}
       {/* ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={!!detailProvider} onOpenChange={(open) => !open && setDetailProvider(null)}>
-        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-6 rounded-3xl shadow-xl max-h-[85vh] overflow-y-auto space-y-4">
+        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl max-h-[85vh] overflow-y-auto space-y-4">
           {detailProvider && (
             <>
               <div className="flex items-start justify-between gap-4">
@@ -1466,7 +1466,7 @@ export default function WorkspaceGigsPage() {
       {/* 4. LOCATION SELECTOR DIALOG                                                */}
       {/* ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-        <DialogContent className="sm:max-w-sm bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-sm bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold text-slate-900">
               Select Your Location
@@ -1523,7 +1523,7 @@ export default function WorkspaceGigsPage() {
       {/* 5. CUSTOM / "OTHER" SERVICE CATEGORY DIALOG                                */}
       {/* ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isOtherModalOpen} onOpenChange={setIsOtherModalOpen}>
-        <DialogContent className="sm:max-w-sm bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-sm bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold text-slate-900">
               Find Specialized Service

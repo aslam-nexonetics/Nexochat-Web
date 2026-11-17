@@ -1214,7 +1214,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Add Experience Dialog */}
       <Dialog open={isExpOpen} onOpenChange={setIsExpOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Add Work Experience</DialogTitle>
           </DialogHeader>
@@ -1311,7 +1311,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Edit Experience Dialog */}
       <Dialog open={isEditExpOpen} onOpenChange={setIsEditExpOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Edit Work Experience</DialogTitle>
           </DialogHeader>
@@ -1402,7 +1402,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Add Education Dialog */}
       <Dialog open={isEduOpen} onOpenChange={setIsEduOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Add Education</DialogTitle>
           </DialogHeader>
@@ -1499,7 +1499,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Edit Education Dialog */}
       <Dialog open={isEditEduOpen} onOpenChange={setIsEditEduOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Edit Education</DialogTitle>
           </DialogHeader>
@@ -1590,7 +1590,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Add Certificate Dialog */}
       <Dialog open={isCertOpen} onOpenChange={setIsCertOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Add Certificate</DialogTitle>
           </DialogHeader>
@@ -1687,7 +1687,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Edit Certificate Dialog */}
       <Dialog open={isEditCertOpen} onOpenChange={setIsEditCertOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Edit Certificate</DialogTitle>
           </DialogHeader>
@@ -1778,7 +1778,7 @@ function TechformCandidateProfileView({ targetUserId }: { targetUserId?: number 
 
       {/* Add Language Dialog */}
       <Dialog open={isLangOpen} onOpenChange={setIsLangOpen}>
-        <DialogContent className="sm:max-w-xs bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-xs bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">Add Language</DialogTitle>
           </DialogHeader>
@@ -2707,7 +2707,7 @@ function GigProviderProfileView({
 
         {/* Booking Dialog Modal */}
         <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-          <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+          <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
             <DialogHeader>
               <DialogTitle className="text-base font-extrabold text-slate-900">
                 Book Appointment with {viewProvider.fullName}
@@ -3504,7 +3504,7 @@ function GigProviderProfileView({
 
       {/* ── 10-STEP AI BOT CREATION WIZARD MODAL (Matching CreateAiBoatScreen) ── */}
       <Dialog open={isBotWizardOpen} onOpenChange={setIsBotWizardOpen}>
-        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-6 rounded-3xl shadow-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between mb-1">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
@@ -3646,7 +3646,7 @@ function GigProviderProfileView({
 
       {/* ── INTERACTIVE BOT TEST MODAL ────────────────────────────────────── */}
       <Dialog open={isTestBotOpen} onOpenChange={setIsTestBotOpen}>
-        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-6 rounded-3xl shadow-xl flex flex-col h-[560px]">
+        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col h-[560px]">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">

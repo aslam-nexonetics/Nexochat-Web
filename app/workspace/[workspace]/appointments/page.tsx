@@ -1056,7 +1056,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Loyalty Points Wallet Modal ─────────────────────────────────────── */}
       <Dialog open={showPointsModal} onOpenChange={setShowPointsModal}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
@@ -1157,7 +1157,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Book New Appointment Dialog ───────────────────────────────────── */}
       <Dialog open={isBookModalOpen} onOpenChange={setIsBookModalOpen}>
-        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Book On-Demand Service Visit</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1288,7 +1288,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Reschedule Dialog ─────────────────────────────────────────────── */}
       <Dialog open={!!rescheduleAppt} onOpenChange={(open) => !open && setRescheduleAppt(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Propose New Schedule</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1348,7 +1348,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Decline Dialog ────────────────────────────────────────────────── */}
       <Dialog open={!!declineAppt} onOpenChange={(open) => !open && setDeclineAppt(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Decline Appointment</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1384,7 +1384,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Cancel Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={!!cancelAppt} onOpenChange={(open) => !open && setCancelAppt(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Cancel Appointment</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1420,7 +1420,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Complete & Bill Dialog ────────────────────────────────────────── */}
       <Dialog open={!!completeAppt} onOpenChange={(open) => !open && setCompleteAppt(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Complete & Bill Work</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1470,7 +1470,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Payment Settlement Dialog ─────────────────────────────────────── */}
       <Dialog open={!!paymentAppt} onOpenChange={(open) => !open && setPaymentAppt(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Settle Service Payment</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1534,7 +1534,7 @@ export default function WorkspaceGigAppointmentsPage() {
 
       {/* ── Review Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={!!reviewAppt} onOpenChange={(open) => !open && setReviewAppt(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Review Service Experience</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">

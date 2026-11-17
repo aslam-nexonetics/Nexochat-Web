@@ -351,7 +351,7 @@ export default function RecruiterDashboardPage() {
 
       {/* Post New Job Dialog */}
       <Dialog open={isPostJobOpen} onOpenChange={setIsPostJobOpen}>
-        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-xl bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleCreateJob}>
             <DialogHeader>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold mb-2 border border-indigo-200 w-fit">

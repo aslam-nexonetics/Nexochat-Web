@@ -1971,7 +1971,7 @@ function WorkspaceChatContent() {
 
       {/* ── START NEW CHAT MODAL ────────────────────────────────────────────── */}
       <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold mb-1.5 border border-slate-200 w-fit">
               <Users className="h-3 w-3" />

@@ -646,7 +646,7 @@ export function GigJobsMarketplaceView() {
 
       {/* ── Loyalty Points Wallet Modal ─────────────────────────────────────── */}
       <Dialog open={showPointsModal} onOpenChange={setShowPointsModal}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
@@ -747,7 +747,7 @@ export function GigJobsMarketplaceView() {
 
       {/* ── 1. Post a Task Modal ──────────────────────────────────────────── */}
       <Dialog open={isPostOpen} onOpenChange={setIsPostOpen}>
-        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-6 rounded-3xl shadow-2xl">
+        <DialogContent className="sm:max-w-lg bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Plus className="h-5 w-5 text-indigo-600" />
@@ -860,7 +860,7 @@ export function GigJobsMarketplaceView() {
 
       {/* ── 2. Submit Bid / Proposal Modal ────────────────────────────────── */}
       <Dialog open={!!biddingJob} onOpenChange={(open) => !open && setBiddingJob(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Submit Bid Proposal</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -919,7 +919,7 @@ export function GigJobsMarketplaceView() {
 
       {/* ── 3. Complete Task Modal ────────────────────────────────────────── */}
       <Dialog open={!!completingJob} onOpenChange={(open) => !open && setCompletingJob(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Complete Task Execution</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -960,7 +960,7 @@ export function GigJobsMarketplaceView() {
 
       {/* ── 4. Rate & Review Job Modal ────────────────────────────────────── */}
       <Dialog open={!!reviewingJob} onOpenChange={(open) => !open && setReviewingJob(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-6 rounded-3xl shadow-xl">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">Review Task Service</DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1051,7 +1051,7 @@ export function GigJobsMarketplaceView() {
 
       {/* ── 5. Inspect Job Details & Received Bids Modal ───────────────────── */}
       <Dialog open={!!inspectJob} onOpenChange={(open) => !open && setInspectJob(null)}>
-        <DialogContent className="sm:max-w-2xl bg-white border border-slate-200 p-6 rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
           {inspectJob && (
             <div className="space-y-6">
               {/* Header */}
